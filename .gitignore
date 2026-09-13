@@ -71,3 +71,6 @@ DerivedData/
 .env
 .env.*
 !.env.example
+
+# Distribution folder
+dist/
