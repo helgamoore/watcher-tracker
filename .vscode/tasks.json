@@ -1,0 +1,94 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build WatcherTracker (Debug)",
+            "type": "process",
+            "command": "xcodebuild",
+            "args": [
+                "-project",
+                "WatcherTracker.xcodeproj",
+                "-scheme",
+                "WatcherTracker",
+                "-configuration",
+                "Debug",
+                "CONFIGURATION_BUILD_DIR=${workspaceFolder}/WatcherTracker/dist",
+                "build"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/WatcherTracker",
+                "env": {
+                    "DEVELOPER_DIR": "/Volumes/Samsung/Applications/Xcode.app/Contents/Developer"
+                }
+            },
+            "problemMatcher": {
+                "owner": "xcodebuild",
+                "fileLocation": "absolute",
+                "pattern": {
+                    "regexp": "^(.+):(\\d+):(\\d+):\\s+(error|warning):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Build WatcherTracker (Release)",
+            "type": "process",
+            "command": "xcodebuild",
+            "args": [
+                "-project",
+                "WatcherTracker.xcodeproj",
+                "-scheme",
+                "WatcherTracker",
+                "-configuration",
+                "Release",
+                "CONFIGURATION_BUILD_DIR=${workspaceFolder}/WatcherTracker/dist",
+                "build"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/WatcherTracker",
+                "env": {
+                    "DEVELOPER_DIR": "/Volumes/Samsung/Applications/Xcode.app/Contents/Developer"
+                }
+            },
+            "problemMatcher": {
+                "owner": "xcodebuild",
+                "fileLocation": "absolute",
+                "pattern": {
+                    "regexp": "^(.+):(\\d+):(\\d+):\\s+(error|warning):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            },
+        },
+        {
+            "label": "Clean WatcherTracker",
+            "type": "process",
+            "command": "xcodebuild",
+            "args": [
+                "-project",
+                "WatcherTracker.xcodeproj",
+                "-scheme",
+                "WatcherTracker",
+                "clean"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/WatcherTracker",
+                "env": {
+                    "DEVELOPER_DIR": "/Volumes/Samsung/Applications/Xcode.app/Contents/Developer"
+                }
+            },
+            "problemMatcher": []
+        }
+    ]
+}
