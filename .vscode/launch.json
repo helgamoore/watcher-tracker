@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug WatcherTracker",
+            "type": "lldb-dap",
+            "request": "launch",
+            "program": "${workspaceFolder}/WatcherTracker/dist/WatcherTracker.app/Contents/MacOS/WatcherTracker",
+            "cwd": "${workspaceFolder}/WatcherTracker",
+            "preLaunchTask": "Build WatcherTracker (Debug)",
+            "stopOnEntry": false
+        }
+    ]
+}

@@ -1,0 +1,24 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build WatcherTracker (Debug)",
+            "type": "process",
+            "command": "xcodebuild",
+            "args": [
+                "-project",
+                "WatcherTracker.xcodeproj",
+                "-scheme",
+                "WatcherTracker",
+                "-configuration",
+                "Debug",
+                "CONFIGURATION_BUILD_DIR=${workspaceFolder}/WatcherTracker/dist",
+                "build"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/WatcherTracker"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
