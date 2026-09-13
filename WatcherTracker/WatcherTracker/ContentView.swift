@@ -39,6 +39,36 @@ struct ContentView: View {
             previous: previous
         )
 
+        let archive = WatcherArchive()
+
+        let applicationSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first!
+
+        let folder = applicationSupport
+            .appendingPathComponent("WatcherTracker")
+            .appendingPathComponent("Archive")
+
+        let snapshot = WatcherSnapshot(
+            date: Date(),
+            watchers: ["Alice", "Bob", "Diana"]
+        )
+
+        do {
+            let url = try archive.save(snapshot, to: folder)
+            print("Saved:", url.path)
+
+            if let latest = try archive.latestSnapshotURL(in: folder) {
+                print("Latest:", latest.path)
+
+                let loaded = try archive.loadSnapshot(from: latest)
+                print("Loaded:", loaded.watchers)
+            }
+        } catch {
+            print("Archive error:", error)
+        }
+
         return serializer.serialize(report)
     }()
 
