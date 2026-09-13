@@ -7,9 +7,11 @@ struct ContentView: View {
     @State private var archiveFolderURL: URL?
     @State private var report: WatcherReport?
     @State private var errorMessage: String?
-
+    @State private var sourceFileName: String?
+    
     private let service = WatcherTrackerService()
-
+    private let bookmarkStore = BookmarkStore()
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             header
@@ -33,6 +35,11 @@ struct ContentView: View {
         }
         .padding(24)
         .frame(minWidth: 600, minHeight: 420)
+        .onAppear {
+            archiveFolderURL = bookmarkStore.loadArchiveFolder()
+            sourceFileName = bookmarkStore.loadSourceFileName()
+            sourceURL = bookmarkStore.loadSourceFile()
+        }
     }
 
     private var header: some View {
@@ -51,7 +58,7 @@ struct ContentView: View {
                 Text("Source file")
                     .font(.headline)
 
-                Text(sourceURL?.path ?? "No file selected")
+                Text(sourceURL?.lastPathComponent ?? sourceFileName ?? "No file selected")
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -93,7 +100,7 @@ struct ContentView: View {
                 process()
             }
             .keyboardShortcut(.defaultAction)
-            .disabled(sourceURL == nil || archiveFolderURL == nil)
+            //.disabled(sourceURL == nil || archiveFolderURL == nil)
         }
     }
 
@@ -164,12 +171,32 @@ struct ContentView: View {
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-
         panel.allowedContentTypes = [.plainText]
 
-        if panel.runModal() == .OK {
-            sourceURL = panel.url
+        if let previousFolder = bookmarkStore.loadSourceFolder() {
+            panel.directoryURL = previousFolder
+        }
+
+        if panel.runModal() == .OK,
+           let url = panel.url {
+
+            sourceURL = url
             errorMessage = nil
+
+            let fileName = url.lastPathComponent
+            sourceFileName = fileName
+
+            do {
+                try bookmarkStore.saveSourceFile(url)
+
+                bookmarkStore.saveSourceFolder(
+                    url.deletingLastPathComponent()
+                )
+
+                bookmarkStore.saveSourceFileName(fileName)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
@@ -183,12 +210,44 @@ struct ContentView: View {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
 
-        if panel.runModal() == .OK {
-            archiveFolderURL = panel.url
+        if let previousFolder = bookmarkStore.loadArchiveFolder() {
+            panel.directoryURL = previousFolder
+        }
+
+        if panel.runModal() == .OK,
+           let url = panel.url {
+
+            archiveFolderURL = url
             errorMessage = nil
+
+            do {
+                try bookmarkStore.saveArchiveFolder(url)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
+    /*
+    private func restoreSourceFile() {
+        guard
+            let folder = bookmarkStore.loadSourceFolder(),
+            let fileName = bookmarkStore.loadSourceFileName()
+        else {
+            sourceURL = nil
+            return
+        }
+
+        let url = folder.appendingPathComponent(fileName)
+
+        if FileManager.default.fileExists(atPath: url.path) {
+            sourceURL = url
+        } else {
+            sourceURL = nil
+        }
+    }
+    */
+    
     private func process() {
         guard
             let sourceURL,
@@ -203,6 +262,7 @@ struct ContentView: View {
                 archiveFolderURL: archiveFolderURL
             )
 
+            bookmarkStore.clearSourceFile()
             self.sourceURL = nil
             errorMessage = nil
         } catch {
