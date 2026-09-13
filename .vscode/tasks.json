@@ -16,7 +16,55 @@
                 "build"
             ],
             "options": {
-                "cwd": "${workspaceFolder}/WatcherTracker"
+                "cwd": "${workspaceFolder}/WatcherTracker",
+                "env": {
+                    "DEVELOPER_DIR": "/Volumes/Samsung/Applications/Xcode.app/Contents/Developer"
+                }
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Build WatcherTracker (Release)",
+            "type": "process",
+            "command": "xcodebuild",
+            "args": [
+                "-project",
+                "WatcherTracker.xcodeproj",
+                "-scheme",
+                "WatcherTracker",
+                "-configuration",
+                "Release",
+                "CONFIGURATION_BUILD_DIR=${workspaceFolder}/WatcherTracker/dist",
+                "build"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/WatcherTracker",
+                "env": {
+                    "DEVELOPER_DIR": "/Volumes/Samsung/Applications/Xcode.app/Contents/Developer"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean WatcherTracker",
+            "type": "process",
+            "command": "xcodebuild",
+            "args": [
+                "-project",
+                "WatcherTracker.xcodeproj",
+                "-scheme",
+                "WatcherTracker",
+                "clean"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/WatcherTracker",
+                "env": {
+                    "DEVELOPER_DIR": "/Volumes/Samsung/Applications/Xcode.app/Contents/Developer"
+                }
             },
             "problemMatcher": []
         }
