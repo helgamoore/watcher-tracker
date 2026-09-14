@@ -11,7 +11,12 @@ import AppKit
 struct WatcherListView: View {
     @EnvironmentObject private var appState: AppState
     @State private var searchText = ""
+    @State private var favourites: Set<String> = []
+    @State private var favouritesOnly = false
 
+    private let favouritesStore = WatcherFavouritesStore()
+    private let bookmarkStore = BookmarkStore()
+    
     var body: some View {
         Group {
             if let snapshot = appState.currentSnapshot {
@@ -53,12 +58,31 @@ struct WatcherListView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                TextField(
-                    "Filter watchers",
-                    text: $searchText
-                )
-                .textFieldStyle(.roundedBorder)
-                .frame(maxWidth: 320)
+                HStack {
+                    TextField(
+                        "Filter watchers",
+                        text: $searchText
+                    )
+                    .textFieldStyle(.roundedBorder)
+
+                    Button {
+                        favouritesOnly.toggle()
+                    } label: {
+                        Image(
+                            systemName:
+                                favouritesOnly
+                                ? "star.fill"
+                                : "star"
+                        )
+                    }
+                    .buttonStyle(.borderless)
+                    .help(
+                        favouritesOnly
+                        ? "Show all watchers"
+                        : "Show favourites only"
+                    )
+                }
+                .frame(maxWidth: 360)
             }
             .padding()
 
@@ -126,13 +150,34 @@ struct WatcherListView: View {
                 }
             }
         }
+        .onAppear {
+            loadFavourites()
+        }
     }
 
     private func watcherLink(
         _ watcher: String
     ) -> some View {
 
-        Group {
+        HStack(spacing: 8) {
+
+            Button {
+                toggleFavourite(watcher)
+            } label: {
+                Image(
+                    systemName:
+                        favourites.contains(watcher)
+                        ? "star.fill"
+                        : "star"
+                )
+            }
+            .buttonStyle(.borderless)
+            .help(
+                favourites.contains(watcher)
+                ? "Remove from favourites"
+                : "Add to favourites"
+            )
+
             if let username =
                 watcher.addingPercentEncoding(
                     withAllowedCharacters: .urlPathAllowed
@@ -158,6 +203,8 @@ struct WatcherListView: View {
             } else {
                 Text(watcher)
             }
+
+            Spacer()
         }
     }
 
@@ -187,16 +234,85 @@ struct WatcherListView: View {
             return []
         }
 
+        var watchers = snapshot.watchers
+
+        if favouritesOnly {
+            watchers = watchers.filter {
+                favourites.contains($0)
+            }
+        }
+
         let query = searchText.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
 
         guard !query.isEmpty else {
-            return snapshot.watchers
+            return watchers
         }
 
-        return snapshot.watchers.filter {
+        return watchers.filter {
             $0.localizedCaseInsensitiveContains(query)
         }
+    }
+    
+    private func loadFavourites() {
+        guard let archiveFolderURL =
+            bookmarkStore.loadArchiveFolder()
+        else {
+            return
+        }
+
+        let accessGranted =
+            archiveFolderURL.startAccessingSecurityScopedResource()
+
+        defer {
+            if accessGranted {
+                archiveFolderURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            favourites = try favouritesStore.load(
+                from: archiveFolderURL
+            )
+        } catch {
+            print("Unable to load favourites:", error)
+        }
+    }
+    
+    private func saveFavourites() {
+        guard let archiveFolderURL =
+            bookmarkStore.loadArchiveFolder()
+        else {
+            return
+        }
+
+        let accessGranted =
+            archiveFolderURL.startAccessingSecurityScopedResource()
+
+        defer {
+            if accessGranted {
+                archiveFolderURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            try favouritesStore.save(
+                favourites,
+                to: archiveFolderURL
+            )
+        } catch {
+            print("Unable to save favourites:", error)
+        }
+    }
+    
+    private func toggleFavourite(_ watcher: String) {
+        if favourites.contains(watcher) {
+            favourites.remove(watcher)
+        } else {
+            favourites.insert(watcher)
+        }
+
+        saveFavourites()
     }
 }
