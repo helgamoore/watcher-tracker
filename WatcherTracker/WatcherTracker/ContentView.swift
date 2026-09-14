@@ -3,270 +3,418 @@ import AppKit
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @State private var sourceURL: URL?
+
+    @State private var sourceFolderURL: URL?
     @State private var archiveFolderURL: URL?
-    @State private var report: WatcherReport?
+
+    @State private var sourceFiles: [URL] = []
+    @State private var selectedFile: URL?
+
+    @State private var lastProcessedFileName: String?
+
+    @State private var lastReport: WatcherReport?
     @State private var errorMessage: String?
-    @State private var sourceFileName: String?
     
-    private let service = WatcherTrackerService()
+    @State private var folderWatcher = FolderWatcher()
+
     private let bookmarkStore = BookmarkStore()
-    
+    private let service = WatcherTrackerService()
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
+
             header
 
             Divider()
 
-            sourceSection
-            archiveSection
+            sourceFolderSection
 
-            processButton
+            archiveFolderSection
 
-            if let report {
-                Divider()
-                reportSection(report)
-            }
+            Divider()
 
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-            }
+            fileSelectionSection
+
+            Spacer()
+
+            statusSection
+
+            bottomBar
         }
         .padding(24)
-        .frame(minWidth: 600, minHeight: 420)
+        .frame(
+            minWidth: 650,
+            minHeight: 520
+        )
         .onAppear {
-            archiveFolderURL = bookmarkStore.loadArchiveFolder()
-            sourceFileName = bookmarkStore.loadSourceFileName()
-            sourceURL = bookmarkStore.loadSourceFile()
+            restoreState()
         }
     }
+
+    // MARK: - Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("WatcherTracker", systemImage: "person.2")
-                .font(.title2)
+        VStack(alignment: .leading, spacing: 4) {
 
-            Text("Import, archive, and compare DeviantArt watcher lists.")
-                .foregroundStyle(.secondary)
+            Label(
+                "WatcherTracker",
+                systemImage: "person.2"
+            )
+            .font(.title2)
+
+            Text(
+                "Import and archive DeviantArt watcher lists."
+            )
+            .foregroundStyle(.secondary)
         }
     }
 
-    private var sourceSection: some View {
+    // MARK: - Source Folder
+
+    private var sourceFolderSection: some View {
         HStack {
+
             VStack(alignment: .leading, spacing: 4) {
-                Text("Source file")
+
+                Text("Source folder")
                     .font(.headline)
 
-                Text(sourceURL?.lastPathComponent ?? sourceFileName ?? "No file selected")
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                Text(
+                    sourceFolderURL?.path
+                    ?? "No source folder selected"
+                )
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
             }
 
             Spacer()
 
-            Button("Choose…") {
-                chooseSourceFile()
+            Button("Select…") {
+                chooseSourceFolder()
             }
         }
     }
 
-    private var archiveSection: some View {
+    // MARK: - Archive Folder
+
+    private var archiveFolderSection: some View {
         HStack {
+
             VStack(alignment: .leading, spacing: 4) {
+
                 Text("Archive folder")
                     .font(.headline)
 
-                Text(archiveFolderURL?.path ?? "No folder selected")
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                Text(
+                    archiveFolderURL?.path
+                    ?? "No archive folder selected"
+                )
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
             }
 
             Spacer()
 
-            Button("Choose…") {
+            Button("Select…") {
                 chooseArchiveFolder()
             }
         }
     }
 
-    private var processButton: some View {
-        HStack {
-            Spacer()
+    // MARK: - File Selection
 
-            Button("Process") {
-                process()
-            }
-            .keyboardShortcut(.defaultAction)
-            //.disabled(sourceURL == nil || archiveFolderURL == nil)
-        }
-    }
+    private var fileSelectionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
 
-    private func reportSection(_ report: WatcherReport) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Report")
+            Text("Select file for import")
                 .font(.headline)
 
-            HStack(spacing: 24) {
-                Label(
-                    "\(report.added.count) added",
-                    systemImage: "plus.circle"
-                )
+            List(
+                sourceFiles,
+                id: \.self,
+                selection: $selectedFile
+            ) { file in
 
-                Label(
-                    "\(report.removed.count) removed",
-                    systemImage: "minus.circle"
-                )
-
-                Label(
-                    "\(report.total) total",
-                    systemImage: "person.2"
-                )
+                Text(file.lastPathComponent)
+                    .tag(file)
             }
+            .frame(minHeight: 180)
+            .disabled(sourceFolderURL == nil)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    if !report.added.isEmpty {
-                        Text("Added")
-                            .font(.headline)
+            if sourceFiles.isEmpty,
+               sourceFolderURL != nil {
 
-                        ForEach(report.added, id: \.self) { watcher in
-                            Text("+ \(watcher)")
-                                .font(.system(.body, design: .monospaced))
-                        }
-                    }
-
-                    if !report.removed.isEmpty {
-                        Text("Removed")
-                            .font(.headline)
-
-                        ForEach(report.removed, id: \.self) { watcher in
-                            Text("- \(watcher)")
-                                .font(.system(.body, design: .monospaced))
-                        }
-                    }
-
-                    if report.added.isEmpty && report.removed.isEmpty {
-                        Text("No changes.")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-            }
-            .frame(maxHeight: 220)
-        }
-    }
-
-    private func chooseSourceFile() {
-        let panel = NSOpenPanel()
-
-        panel.title = "Choose Watcher List"
-        panel.prompt = "Choose"
-
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.plainText]
-
-        if let previousFolder = bookmarkStore.loadSourceFolder() {
-            panel.directoryURL = previousFolder
-        }
-
-        if panel.runModal() == .OK,
-           let url = panel.url {
-
-            sourceURL = url
-            errorMessage = nil
-
-            let fileName = url.lastPathComponent
-            sourceFileName = fileName
-
-            do {
-                try bookmarkStore.saveSourceFile(url)
-
-                bookmarkStore.saveSourceFolder(
-                    url.deletingLastPathComponent()
-                )
-
-                bookmarkStore.saveSourceFileName(fileName)
-            } catch {
-                errorMessage = error.localizedDescription
+                Text("No files found in source folder.")
+                    .foregroundStyle(.secondary)
             }
         }
     }
 
-    private func chooseArchiveFolder() {
+    // MARK: - Status
+
+    @ViewBuilder
+    private var statusSection: some View {
+
+        if let lastProcessedFileName {
+
+            Text(
+                "Last processed file: \(lastProcessedFileName)"
+            )
+            .foregroundStyle(.secondary)
+        }
+
+        if let lastReport {
+
+            Text(
+                "Last result: \(lastReport.total) watchers, " +
+                "\(lastReport.added.count) added, " +
+                "\(lastReport.removed.count) removed."
+            )
+            .foregroundStyle(.secondary)
+        }
+
+        if let errorMessage {
+
+            Text(errorMessage)
+                .foregroundStyle(.red)
+        }
+    }
+
+    // MARK: - Bottom Bar
+
+    private var bottomBar: some View {
+        HStack {
+
+            Button("Go to DA profile") {
+                // Later
+            }
+
+            Spacer()
+
+            Button("Latest report") {
+                // Later: open report window
+            }
+            .disabled(lastReport == nil)
+
+            Button("Process") {
+                processSelectedFile()
+            }
+            .keyboardShortcut(.defaultAction)
+            .disabled(!canProcess)
+        }
+    }
+
+    // MARK: - Processing State
+
+    private var canProcess: Bool {
+        sourceFolderURL != nil &&
+        archiveFolderURL != nil &&
+        selectedFile != nil
+    }
+
+    // MARK: - Source Folder Selection
+
+    private func chooseSourceFolder() {
+
         let panel = NSOpenPanel()
 
-        panel.title = "Choose Archive Folder"
-        panel.prompt = "Choose"
+        panel.title = "Choose Source Folder"
+        panel.prompt = "Select"
 
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
 
-        if let previousFolder = bookmarkStore.loadArchiveFolder() {
-            panel.directoryURL = previousFolder
+        if let sourceFolderURL {
+            panel.directoryURL = sourceFolderURL
         }
 
-        if panel.runModal() == .OK,
-           let url = panel.url {
+        guard
+            panel.runModal() == .OK,
+            let url = panel.url
+        else {
+            return
+        }
+
+        do {
+            try bookmarkStore.saveSourceFolder(url)
+
+            sourceFolderURL = url
+            errorMessage = nil
+
+            refreshSourceFiles()
+            startFolderWatcher()
+
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Archive Folder Selection
+
+    private func chooseArchiveFolder() {
+
+        let panel = NSOpenPanel()
+
+        panel.title = "Choose Archive Folder"
+        panel.prompt = "Select"
+
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+
+        if let archiveFolderURL {
+            panel.directoryURL = archiveFolderURL
+        }
+
+        guard
+            panel.runModal() == .OK,
+            let url = panel.url
+        else {
+            return
+        }
+
+        do {
+            try bookmarkStore.saveArchiveFolder(url)
 
             archiveFolderURL = url
             errorMessage = nil
 
-            do {
-                try bookmarkStore.saveArchiveFolder(url)
-            } catch {
-                errorMessage = error.localizedDescription
-            }
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
-    /*
-    private func restoreSourceFile() {
-        guard
-            let folder = bookmarkStore.loadSourceFolder(),
-            let fileName = bookmarkStore.loadSourceFileName()
-        else {
-            sourceURL = nil
+    // MARK: - Source Files
+
+    private func refreshSourceFiles() {
+
+        guard let sourceFolderURL else {
+            sourceFiles = []
+            selectedFile = nil
             return
         }
 
-        let url = folder.appendingPathComponent(fileName)
+        let accessGranted =
+            sourceFolderURL.startAccessingSecurityScopedResource()
 
-        if FileManager.default.fileExists(atPath: url.path) {
-            sourceURL = url
-        } else {
-            sourceURL = nil
+        defer {
+            if accessGranted {
+                sourceFolderURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+
+            let files = try FileManager.default.contentsOfDirectory(
+                at: sourceFolderURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+
+            sourceFiles = files
+                .filter {
+                    !$0.hasDirectoryPath
+                }
+                .sorted {
+                    $0.lastPathComponent
+                        .localizedCaseInsensitiveCompare(
+                            $1.lastPathComponent
+                        ) == .orderedAscending
+                }
+
+            restorePreviousSelection()
+
+            errorMessage = nil
+
+        } catch {
+
+            sourceFiles = []
+            selectedFile = nil
+            errorMessage = error.localizedDescription
         }
     }
-    */
-    
-    private func process() {
+
+    private func restorePreviousSelection() {
+
+        guard let lastProcessedFileName else {
+            selectedFile = nil
+            return
+        }
+
+        selectedFile = sourceFiles.first {
+            $0.lastPathComponent == lastProcessedFileName
+        }
+    }
+
+    // MARK: - Process
+
+    private func processSelectedFile() {
+
         guard
-            let sourceURL,
+            let selectedFile,
             let archiveFolderURL
         else {
             return
         }
 
         do {
-            report = try service.process(
-                sourceURL: sourceURL,
+
+            let report = try service.process(
+                sourceURL: selectedFile,
                 archiveFolderURL: archiveFolderURL
             )
 
-            bookmarkStore.clearSourceFile()
-            self.sourceURL = nil
+            let processedFileName =
+                selectedFile.lastPathComponent
+
+            lastProcessedFileName =
+                processedFileName
+
+            bookmarkStore.saveLastProcessedFileName(
+                processedFileName
+            )
+
+            lastReport = report
             errorMessage = nil
+
+            refreshSourceFiles()
+
         } catch {
+
             errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Restore
+
+    private func restoreState() {
+
+        sourceFolderURL =
+            bookmarkStore.loadSourceFolder()
+
+        archiveFolderURL =
+            bookmarkStore.loadArchiveFolder()
+
+        lastProcessedFileName =
+            bookmarkStore.loadLastProcessedFileName()
+
+        refreshSourceFiles()
+        startFolderWatcher()
+    }
+    
+    private func startFolderWatcher() {
+        guard let sourceFolderURL else {
+            folderWatcher.stop()
+            return
+        }
+
+        folderWatcher.start(
+            watching: sourceFolderURL
+        ) {
+            refreshSourceFiles()
         }
     }
 }
