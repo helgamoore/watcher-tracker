@@ -4,6 +4,9 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
 
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.openWindow) private var openWindow
+    
     @State private var sourceFolderURL: URL?
     @State private var archiveFolderURL: URL?
 
@@ -12,14 +15,27 @@ struct ContentView: View {
 
     @State private var lastProcessedFileName: String?
 
-    @State private var lastReport: WatcherReport?
     @State private var errorMessage: String?
     
     @State private var folderWatcher = FolderWatcher()
 
+    @AppStorage("deviantArtUsername")
+    private var deviantArtUsername = ""
+    
+    private var watchersURL: URL? {
+        guard !deviantArtUsername.isEmpty else {
+            return nil
+        }
+
+        return URL(
+            string: "https://www.deviantart.com/\(deviantArtUsername)/about#watchers"
+        )
+    }
+    
     private let bookmarkStore = BookmarkStore()
     private let service = WatcherTrackerService()
-
+    private let archive = WatcherArchive()
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
 
@@ -165,8 +181,7 @@ struct ContentView: View {
             .foregroundStyle(.secondary)
         }
 
-        if let lastReport {
-
+        if let lastReport = appState.lastReport {
             Text(
                 "Last result: \(lastReport.total) watchers, " +
                 "\(lastReport.added.count) added, " +
@@ -184,19 +199,37 @@ struct ContentView: View {
 
     // MARK: - Bottom Bar
 
+    private func openDeviantArtProfile() {
+        guard let url = watchersURL else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
+    }
+
     private var bottomBar: some View {
         HStack {
 
-            Button("Go to DA profile") {
-                // Later
+            Button {
+                openDeviantArtProfile()
+            } label: {
+                HStack(spacing: 6) {
+                    Image("DeviantArtLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 16, height: 16)
+
+                    Text("Go to DA profile")
+                }
             }
+            .disabled(deviantArtUsername.isEmpty)
 
             Spacer()
 
             Button("Latest report") {
-                // Later: open report window
+                openWindow(id: "report")
             }
-            .disabled(lastReport == nil)
+            .disabled(appState.lastReport == nil)
 
             Button("Process") {
                 processSelectedFile()
@@ -316,7 +349,8 @@ struct ContentView: View {
 
             sourceFiles = files
                 .filter {
-                    !$0.hasDirectoryPath
+                    !$0.hasDirectoryPath &&
+                    $0.pathExtension.lowercased() == "txt"
                 }
                 .sorted {
                     $0.lastPathComponent
@@ -377,7 +411,8 @@ struct ContentView: View {
                 processedFileName
             )
 
-            lastReport = report
+            appState.lastReport = report
+            openWindow(id: "report")
             errorMessage = nil
 
             refreshSourceFiles()
@@ -403,6 +438,43 @@ struct ContentView: View {
 
         refreshSourceFiles()
         startFolderWatcher()
+        loadLatestReport()
+    }
+    
+    private func loadLatestReport() {
+        guard let archiveFolderURL else {
+            return
+        }
+
+        let accessGranted =
+            archiveFolderURL.startAccessingSecurityScopedResource()
+
+        defer {
+            if accessGranted {
+                archiveFolderURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            guard let reportURL =
+                try archive.latestReportURL(
+                    in: archiveFolderURL
+                )
+            else {
+                appState.lastReport = nil
+                return
+            }
+
+            appState.lastReport =
+                try archive.loadReport(
+                    from: reportURL
+                )
+
+            errorMessage = nil
+
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
     
     private func startFolderWatcher() {

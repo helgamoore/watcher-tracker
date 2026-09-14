@@ -141,9 +141,66 @@ struct WatcherArchive {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
+    
+    func latestReportURL(in folder: URL) throws -> URL? {
+        let files = try fileManager.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+
+        return files
+            .filter { url in
+                let name = url.lastPathComponent
+
+                return name.hasPrefix("watchers_report_")
+                    && name.hasSuffix(".txt")
+            }
+            .sorted {
+                $0.lastPathComponent > $1.lastPathComponent
+            }
+            .first
+    }
+    
+    func loadReport(from url: URL) throws -> WatcherReport {
+        let text = try String(
+            contentsOf: url,
+            encoding: .utf8
+        )
+
+        let date = try date(fromReportURL: url)
+
+        return serializer.deserializeReport(
+            from: text,
+            date: date
+        )
+    }
+    
+    private func date(fromReportURL url: URL) throws -> Date {
+        let name = url
+            .deletingPathExtension()
+            .lastPathComponent
+
+        guard name.hasPrefix("watchers_report_") else {
+            throw ArchiveError.invalidReportFileName
+        }
+
+        let datePart = String(
+            name.dropFirst("watchers_report_".count)
+        )
+
+        guard let date = Self.dateFormatter.date(
+            from: datePart
+        ) else {
+            throw ArchiveError.invalidReportFileName
+        }
+
+        return date
+    }
 }
 
 enum ArchiveError: Error {
     case notDirectory
     case invalidSnapshotFileName
+    case invalidReportFileName
 }
