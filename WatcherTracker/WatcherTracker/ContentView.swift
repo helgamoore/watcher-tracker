@@ -17,6 +17,19 @@ struct ContentView: View {
     
     @State private var folderWatcher = FolderWatcher()
 
+    @AppStorage("deviantArtUsername")
+    private var deviantArtUsername = ""
+    
+    private var watchersURL: URL? {
+        guard !deviantArtUsername.isEmpty else {
+            return nil
+        }
+
+        return URL(
+            string: "https://www.deviantart.com/\(deviantArtUsername)/about#watchers"
+        )
+    }
+    
     private let bookmarkStore = BookmarkStore()
     private let service = WatcherTrackerService()
 
@@ -184,12 +197,30 @@ struct ContentView: View {
 
     // MARK: - Bottom Bar
 
+    private func openDeviantArtProfile() {
+        guard let url = watchersURL else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
+    }
+
     private var bottomBar: some View {
         HStack {
 
-            Button("Go to DA profile") {
-                // Later
+            Button {
+                openDeviantArtProfile()
+            } label: {
+                HStack(spacing: 6) {
+                    Image("DeviantArtLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 16, height: 16)
+
+                    Text("Go to DA profile")
+                }
             }
+            .disabled(deviantArtUsername.isEmpty)
 
             Spacer()
 
@@ -316,7 +347,8 @@ struct ContentView: View {
 
             sourceFiles = files
                 .filter {
-                    !$0.hasDirectoryPath
+                    !$0.hasDirectoryPath &&
+                    $0.pathExtension.lowercased() == "txt"
                 }
                 .sorted {
                     $0.lastPathComponent

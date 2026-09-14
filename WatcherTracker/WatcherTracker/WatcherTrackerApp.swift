@@ -13,5 +13,9 @@ struct WatcherTrackerApp: App {
         WindowGroup {
             ContentView()
         }
+
+        Settings {
+            SettingsView()
+        }
     }
 }
