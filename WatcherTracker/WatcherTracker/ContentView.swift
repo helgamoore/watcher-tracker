@@ -4,6 +4,9 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
 
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.openWindow) private var openWindow
+    
     @State private var sourceFolderURL: URL?
     @State private var archiveFolderURL: URL?
 
@@ -12,7 +15,6 @@ struct ContentView: View {
 
     @State private var lastProcessedFileName: String?
 
-    @State private var lastReport: WatcherReport?
     @State private var errorMessage: String?
     
     @State private var folderWatcher = FolderWatcher()
@@ -178,8 +180,7 @@ struct ContentView: View {
             .foregroundStyle(.secondary)
         }
 
-        if let lastReport {
-
+        if let lastReport = appState.lastReport {
             Text(
                 "Last result: \(lastReport.total) watchers, " +
                 "\(lastReport.added.count) added, " +
@@ -225,9 +226,9 @@ struct ContentView: View {
             Spacer()
 
             Button("Latest report") {
-                // Later: open report window
+                openWindow(id: "report")
             }
-            .disabled(lastReport == nil)
+            .disabled(appState.lastReport == nil)
 
             Button("Process") {
                 processSelectedFile()
@@ -409,7 +410,8 @@ struct ContentView: View {
                 processedFileName
             )
 
-            lastReport = report
+            appState.lastReport = report
+            openWindow(id: "report")
             errorMessage = nil
 
             refreshSourceFiles()
