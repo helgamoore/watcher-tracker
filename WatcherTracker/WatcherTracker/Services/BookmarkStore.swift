@@ -10,11 +10,24 @@ import Foundation
 struct BookmarkStore {
 
     private enum Keys {
+        static let sourceFolder = "sourceFolderBookmark"
         static let archiveFolder = "archiveFolderBookmark"
-        static let sourceFile = "sourceFileBookmark"
+        static let lastProcessedFileName = "lastProcessedFileName"
+    }
 
-        static let sourceFolderPath = "sourceFolderPath"
-        static let sourceFileName = "sourceFileName"
+    // MARK: - Source folder
+
+    func saveSourceFolder(_ url: URL) throws {
+        try saveBookmark(
+            for: url,
+            key: Keys.sourceFolder
+        )
+    }
+
+    func loadSourceFolder() -> URL? {
+        loadBookmark(
+            key: Keys.sourceFolder
+        )
     }
 
     // MARK: - Archive folder
@@ -32,58 +45,18 @@ struct BookmarkStore {
         )
     }
 
-    // MARK: - Source file
+    // MARK: - Last processed file
 
-    func saveSourceFile(_ url: URL) throws {
-        try saveBookmark(
-            for: url,
-            key: Keys.sourceFile
-        )
-    }
-
-    func loadSourceFile() -> URL? {
-        loadBookmark(
-            key: Keys.sourceFile
-        )
-    }
-
-    func clearSourceFile() {
-        UserDefaults.standard.removeObject(
-            forKey: Keys.sourceFile
-        )
-    }
-
-    // MARK: - Source folder
-
-    func saveSourceFolder(_ url: URL) {
-        UserDefaults.standard.set(
-            url.path,
-            forKey: Keys.sourceFolderPath
-        )
-    }
-
-    func loadSourceFolder() -> URL? {
-        guard let path = UserDefaults.standard.string(
-            forKey: Keys.sourceFolderPath
-        ) else {
-            return nil
-        }
-
-        return URL(fileURLWithPath: path)
-    }
-
-    // MARK: - Source file name
-
-    func saveSourceFileName(_ name: String) {
+    func saveLastProcessedFileName(_ name: String) {
         UserDefaults.standard.set(
             name,
-            forKey: Keys.sourceFileName
+            forKey: Keys.lastProcessedFileName
         )
     }
 
-    func loadSourceFileName() -> String? {
+    func loadLastProcessedFileName() -> String? {
         UserDefaults.standard.string(
-            forKey: Keys.sourceFileName
+            forKey: Keys.lastProcessedFileName
         )
     }
 
@@ -93,6 +66,7 @@ struct BookmarkStore {
         for url: URL,
         key: String
     ) throws {
+
         let data = try url.bookmarkData(
             options: .withSecurityScope,
             includingResourceValuesForKeys: nil,
@@ -108,6 +82,7 @@ struct BookmarkStore {
     private func loadBookmark(
         key: String
     ) -> URL? {
+
         guard let data = UserDefaults.standard.data(
             forKey: key
         ) else {
