@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 struct ReportView: View {
     @EnvironmentObject private var appState: AppState
@@ -29,6 +30,22 @@ struct ReportView: View {
         )
     }
 
+    private func openProfile(_ username: String) {
+        guard let encodedUsername = username.addingPercentEncoding(
+            withAllowedCharacters: .urlPathAllowed
+        ) else {
+            return
+        }
+
+        guard let url = URL(
+            string: "https://www.deviantart.com/\(encodedUsername)"
+        ) else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
+    }
+    
     private func reportContent(
         _ report: WatcherReport
     ) -> some View {
@@ -101,8 +118,25 @@ struct ReportView: View {
             } else {
 
                 ForEach(watchers, id: \.self) { watcher in
-                    Text("\(symbol) \(watcher)")
-                        .font(.system(.body, design: .monospaced))
+                    Button {
+                        openProfile(watcher)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(symbol)
+
+                            Text(watcher)
+                                .font(.system(.body, design: .monospaced))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.link)
+                    .onHover { hovering in
+                        if hovering {
+                            NSCursor.pointingHand.push()
+                        } else {
+                            NSCursor.pop()
+                        }
+                    }
                 }
             }
         }

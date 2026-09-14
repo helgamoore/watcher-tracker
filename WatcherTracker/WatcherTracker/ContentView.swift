@@ -34,7 +34,8 @@ struct ContentView: View {
     
     private let bookmarkStore = BookmarkStore()
     private let service = WatcherTrackerService()
-
+    private let archive = WatcherArchive()
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
 
@@ -437,6 +438,43 @@ struct ContentView: View {
 
         refreshSourceFiles()
         startFolderWatcher()
+        loadLatestReport()
+    }
+    
+    private func loadLatestReport() {
+        guard let archiveFolderURL else {
+            return
+        }
+
+        let accessGranted =
+            archiveFolderURL.startAccessingSecurityScopedResource()
+
+        defer {
+            if accessGranted {
+                archiveFolderURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            guard let reportURL =
+                try archive.latestReportURL(
+                    in: archiveFolderURL
+                )
+            else {
+                appState.lastReport = nil
+                return
+            }
+
+            appState.lastReport =
+                try archive.loadReport(
+                    from: reportURL
+                )
+
+            errorMessage = nil
+
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
     
     private func startFolderWatcher() {
