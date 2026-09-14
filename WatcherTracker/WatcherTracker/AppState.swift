@@ -10,4 +10,5 @@ import Combine
 
 final class AppState: ObservableObject {
     @Published var lastReport: WatcherReport?
+    @Published var currentSnapshot: WatcherSnapshot?
 }

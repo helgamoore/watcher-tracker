@@ -20,6 +20,14 @@ struct WatcherTrackerApp: App {
         }
 
         Window(
+            "Current Watchers",
+            id: "watchers"
+        ) {
+            WatcherListView()
+                .environmentObject(appState)
+        }
+        
+        Window(
             "Latest Report",
             id: "report"
         ) {

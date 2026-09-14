@@ -231,6 +231,11 @@ struct ContentView: View {
             }
             .disabled(appState.lastReport == nil)
 
+            Button("Current watchers") {
+                openWindow(id: "watchers")
+            }
+            .disabled(appState.currentSnapshot == nil)
+            
             Button("Process") {
                 processSelectedFile()
             }
@@ -415,6 +420,8 @@ struct ContentView: View {
             openWindow(id: "report")
             errorMessage = nil
 
+            loadCurrentSnapshot()
+            
             refreshSourceFiles()
 
         } catch {
@@ -426,7 +433,6 @@ struct ContentView: View {
     // MARK: - Restore
 
     private func restoreState() {
-
         sourceFolderURL =
             bookmarkStore.loadSourceFolder()
 
@@ -438,7 +444,9 @@ struct ContentView: View {
 
         refreshSourceFiles()
         startFolderWatcher()
+
         loadLatestReport()
+        loadCurrentSnapshot()
     }
     
     private func loadLatestReport() {
@@ -487,6 +495,43 @@ struct ContentView: View {
             watching: sourceFolderURL
         ) {
             refreshSourceFiles()
+        }
+    }
+    
+    private func loadCurrentSnapshot() {
+        guard let archiveFolderURL else {
+            appState.currentSnapshot = nil
+            return
+        }
+
+        let accessGranted =
+            archiveFolderURL.startAccessingSecurityScopedResource()
+
+        defer {
+            if accessGranted {
+                archiveFolderURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            guard let snapshotURL =
+                try archive.latestSnapshotURL(
+                    in: archiveFolderURL
+                )
+            else {
+                appState.currentSnapshot = nil
+                return
+            }
+
+            appState.currentSnapshot =
+                try archive.loadSnapshot(
+                    from: snapshotURL
+                )
+
+            errorMessage = nil
+
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }
