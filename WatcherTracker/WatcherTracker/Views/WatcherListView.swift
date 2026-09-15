@@ -11,10 +11,9 @@ import AppKit
 struct WatcherListView: View {
     @EnvironmentObject private var appState: AppState
     @State private var searchText = ""
-    @State private var favourites: Set<String> = []
     @State private var favouritesOnly = false
 
-    private let favouritesStore = WatcherFavouritesStore()
+    private let favouritesStore = FavouriteArtistsStore()
     private let bookmarkStore = BookmarkStore()
     
     var body: some View {
@@ -166,14 +165,14 @@ struct WatcherListView: View {
             } label: {
                 Image(
                     systemName:
-                        favourites.contains(watcher)
+                        appState.favourites.contains(watcher)
                         ? "star.fill"
                         : "star"
                 )
             }
             .buttonStyle(.borderless)
             .help(
-                favourites.contains(watcher)
+                appState.favourites.contains(watcher)
                 ? "Remove from favourites"
                 : "Add to favourites"
             )
@@ -238,7 +237,7 @@ struct WatcherListView: View {
 
         if favouritesOnly {
             watchers = watchers.filter {
-                favourites.contains($0)
+                appState.favourites.contains($0)
             }
         }
 
@@ -272,7 +271,7 @@ struct WatcherListView: View {
         }
 
         do {
-            favourites = try favouritesStore.load(
+            appState.favourites = try favouritesStore.load(
                 from: archiveFolderURL
             )
         } catch {
@@ -298,19 +297,22 @@ struct WatcherListView: View {
 
         do {
             try favouritesStore.save(
-                favourites,
+                appState.favourites,
                 to: archiveFolderURL
             )
         } catch {
-            print("Unable to save favourites:", error)
+            print(
+                "Saving favourites error:",
+                error.localizedDescription
+            )
         }
     }
     
     private func toggleFavourite(_ watcher: String) {
-        if favourites.contains(watcher) {
-            favourites.remove(watcher)
+        if appState.favourites.contains(watcher) {
+            appState.favourites.remove(watcher)
         } else {
-            favourites.insert(watcher)
+            appState.favourites.insert(watcher)
         }
 
         saveFavourites()

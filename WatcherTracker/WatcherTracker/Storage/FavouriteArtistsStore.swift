@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct WatcherFavouritesStore {
+struct FavouriteArtistsStore {
 
     private let fileManager = FileManager.default
 
