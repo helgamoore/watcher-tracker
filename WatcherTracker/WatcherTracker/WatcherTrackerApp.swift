@@ -28,13 +28,21 @@ struct WatcherTrackerApp: App {
         }
         
         Window(
+            "Favourite Artists",
+            id: "favourites"
+        ) {
+            FavouritesView()
+                .environmentObject(appState)
+        }
+        
+        Window(
             "Latest Report",
             id: "report"
         ) {
             ReportView()
                 .environmentObject(appState)
         }
-
+        
         Settings {
             SettingsView()
         }

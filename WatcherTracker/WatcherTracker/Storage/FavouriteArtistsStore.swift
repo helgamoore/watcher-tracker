@@ -7,11 +7,11 @@
 
 import Foundation
 
-struct WatcherFavouritesStore {
+struct FavouriteArtistsStore {
 
     private let fileManager = FileManager.default
 
-    private let fileName = "watchers_favourites.txt"
+    private let fileName = "favourites.txt"
 
     func load(from archiveFolder: URL) throws -> Set<String> {
         let url = archiveFolder

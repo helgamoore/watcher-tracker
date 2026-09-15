@@ -197,6 +197,46 @@ struct WatcherArchive {
 
         return date
     }
+    
+    func latestSnapshotURL(
+        in folder: URL,
+        before targetDate: Date
+    ) throws -> URL? {
+
+        let files = try fileManager.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+
+        let calendar = Calendar.current
+        let targetDay = calendar.startOfDay(for: targetDate)
+
+        let snapshots = try files.compactMap { url -> (URL, Date)? in
+            let name = url.lastPathComponent
+
+            guard
+                name.hasPrefix("watchers_"),
+                name.hasSuffix(".txt"),
+                !name.hasPrefix("watchers_report_")
+            else {
+                return nil
+            }
+
+            let snapshotDate = try date(fromSnapshotURL: url)
+            let snapshotDay = calendar.startOfDay(for: snapshotDate)
+
+            guard snapshotDay < targetDay else {
+                return nil
+            }
+
+            return (url, snapshotDate)
+        }
+
+        return snapshots
+            .max { $0.1 < $1.1 }?
+            .0
+    }
 }
 
 enum ArchiveError: Error {

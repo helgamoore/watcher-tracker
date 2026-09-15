@@ -35,6 +35,7 @@ struct ContentView: View {
     private let bookmarkStore = BookmarkStore()
     private let service = WatcherTrackerService()
     private let archive = WatcherArchive()
+    private let favouritesStore = FavouriteArtistsStore()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -236,6 +237,15 @@ struct ContentView: View {
             }
             .disabled(appState.currentSnapshot == nil)
             
+            Button {
+                openWindow(id: "favourites")
+            } label: {
+                Label(
+                    "Favourites",
+                    systemImage: "star.fill"
+                )
+            }
+            
             Button("Process") {
                 processSelectedFile()
             }
@@ -286,7 +296,7 @@ struct ContentView: View {
             startFolderWatcher()
 
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Choosing source folder error: \(error.localizedDescription)"
         }
     }
 
@@ -321,7 +331,7 @@ struct ContentView: View {
             errorMessage = nil
 
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Choosing archive folder error: \(error.localizedDescription)"
         }
     }
 
@@ -369,10 +379,10 @@ struct ContentView: View {
             errorMessage = nil
 
         } catch {
-
+            
             sourceFiles = []
             selectedFile = nil
-            errorMessage = error.localizedDescription
+            errorMessage = "Refreshing source files error: \(error.localizedDescription)"
         }
     }
 
@@ -425,8 +435,7 @@ struct ContentView: View {
             refreshSourceFiles()
 
         } catch {
-
-            errorMessage = error.localizedDescription
+            errorMessage = "Processing selected file error: \(error.localizedDescription)"
         }
     }
 
@@ -447,6 +456,7 @@ struct ContentView: View {
 
         loadLatestReport()
         loadCurrentSnapshot()
+        loadFavourites()
     }
     
     private func loadLatestReport() {
@@ -481,7 +491,7 @@ struct ContentView: View {
             errorMessage = nil
 
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Load latest report error: \(error.localizedDescription)"
         }
     }
     
@@ -531,7 +541,35 @@ struct ContentView: View {
             errorMessage = nil
 
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Load current snapshot error: \(error.localizedDescription)"
+        }
+    }
+    
+    private func loadFavourites() {
+        guard let archiveFolderURL else {
+            appState.favourites = []
+            return
+        }
+
+        let accessGranted =
+            archiveFolderURL.startAccessingSecurityScopedResource()
+
+        defer {
+            if accessGranted {
+                archiveFolderURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            appState.favourites = try favouritesStore.load(
+                from: archiveFolderURL
+            )
+
+            errorMessage = nil
+
+        } catch {
+            errorMessage =
+                "Loading favourites error: \(error.localizedDescription)"
         }
     }
 }

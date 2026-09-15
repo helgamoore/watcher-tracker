@@ -27,7 +27,8 @@ struct WatcherTrackerService {
 
         // Important: find the previous snapshot BEFORE saving today's one.
         let previousSnapshotURL = try archive.latestSnapshotURL(
-            in: archiveFolderURL
+            in: archiveFolderURL,
+            before: date
         )
 
         let rawText = try String(
@@ -58,12 +59,12 @@ struct WatcherTrackerService {
             previous: previousSnapshot
         )
 
-        try archive.save(
+        try _ = archive.save(
             currentSnapshot,
             to: archiveFolderURL
         )
 
-        try archive.save(
+        try _ = archive.save(
             report,
             to: archiveFolderURL
         )
