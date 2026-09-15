@@ -286,7 +286,7 @@ struct ContentView: View {
             startFolderWatcher()
 
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Choosing source folder error: \(error.localizedDescription)"
         }
     }
 
@@ -321,7 +321,7 @@ struct ContentView: View {
             errorMessage = nil
 
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Choosing archive folder error: \(error.localizedDescription)"
         }
     }
 
@@ -369,10 +369,10 @@ struct ContentView: View {
             errorMessage = nil
 
         } catch {
-
+            
             sourceFiles = []
             selectedFile = nil
-            errorMessage = error.localizedDescription
+            errorMessage = "Refreshing source files error: \(error.localizedDescription)"
         }
     }
 
@@ -425,8 +425,7 @@ struct ContentView: View {
             refreshSourceFiles()
 
         } catch {
-
-            errorMessage = error.localizedDescription
+            errorMessage = "Processing selected file error: \(error.localizedDescription)"
         }
     }
 
@@ -481,7 +480,7 @@ struct ContentView: View {
             errorMessage = nil
 
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Load latest report error: \(error.localizedDescription)"
         }
     }
     
@@ -531,7 +530,7 @@ struct ContentView: View {
             errorMessage = nil
 
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Load current snapshot error: \(error.localizedDescription)"
         }
     }
 }

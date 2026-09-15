@@ -58,12 +58,12 @@ struct WatcherTrackerService {
             previous: previousSnapshot
         )
 
-        try archive.save(
+        try _ = archive.save(
             currentSnapshot,
             to: archiveFolderURL
         )
 
-        try archive.save(
+        try _ = archive.save(
             report,
             to: archiveFolderURL
         )
