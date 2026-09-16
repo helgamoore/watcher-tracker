@@ -237,6 +237,49 @@ struct WatcherArchive {
             .max { $0.1 < $1.1 }?
             .0
     }
+    
+    func reportURLs(in folder: URL) throws -> [URL] {
+        let files = try fileManager.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+
+        return try files
+            .compactMap { url -> (URL, Date)? in
+                let name = url.lastPathComponent
+
+                guard
+                    name.hasPrefix("watchers_report_"),
+                    name.hasSuffix(".txt")
+                else {
+                    return nil
+                }
+
+                let reportDate = try date(fromReportURL: url)
+
+                return (url, reportDate)
+            }
+            .sorted { $0.1 < $1.1 }
+            .map(\.0)
+    }
+    
+    func reports(in folder: URL) throws -> [Date: WatcherReport] {
+        let urls = try reportURLs(in: folder)
+
+        var result: [Date: WatcherReport] = [:]
+
+        let calendar = Calendar.current
+
+        for url in urls {
+            let report = try loadReport(from: url)
+            let day = calendar.startOfDay(for: report.date)
+
+            result[day] = report
+        }
+
+        return result
+    }
 }
 
 enum ArchiveError: Error {

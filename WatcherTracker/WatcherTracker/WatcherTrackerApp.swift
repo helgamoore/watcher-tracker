@@ -36,6 +36,13 @@ struct WatcherTrackerApp: App {
         }
         
         Window(
+            "Report History",
+            id: "report-history"
+        ) {
+            ReportHistoryView()
+        }
+        
+        Window(
             "Latest Report",
             id: "report"
         ) {

@@ -246,6 +246,15 @@ struct ContentView: View {
                 )
             }
             
+            Button {
+                openWindow(id: "report-history")
+            } label: {
+                Label(
+                    "Report History",
+                    systemImage: "calendar"
+                )
+            }
+            
             Button("Process") {
                 processSelectedFile()
             }
