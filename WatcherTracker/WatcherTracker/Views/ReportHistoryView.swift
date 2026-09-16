@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 struct ReportHistoryView: View {
     @State private var reports: [Date: WatcherReport] = [:]
@@ -232,7 +233,7 @@ struct ReportHistoryView: View {
                         report.added,
                         id: \.self
                     ) { watcher in
-                        Text(watcher)
+                        profileLink(watcher)
                     }
                 }
 
@@ -244,7 +245,7 @@ struct ReportHistoryView: View {
                         report.removed,
                         id: \.self
                     ) { watcher in
-                        Text(watcher)
+                        profileLink(watcher)
                     }
                 }
             }
@@ -410,6 +411,33 @@ struct ReportHistoryView: View {
         } catch {
             errorMessage =
                 "Loading report history error: \(error.localizedDescription)"
+        }
+    }
+    
+    @ViewBuilder
+    private func profileLink(_ username: String) -> some View {
+        if let encoded = username.addingPercentEncoding(
+            withAllowedCharacters: .urlPathAllowed
+        ),
+           let url = URL(
+            string: "https://www.deviantart.com/\(encoded)"
+           ) {
+
+            Link(destination: url) {
+                Text(username)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.link)
+            .onHover { hovering in
+                if hovering {
+                    NSCursor.pointingHand.set()
+                } else {
+                    NSCursor.arrow.set()
+                }
+            }
+
+        } else {
+            Text(username)
         }
     }
 }
