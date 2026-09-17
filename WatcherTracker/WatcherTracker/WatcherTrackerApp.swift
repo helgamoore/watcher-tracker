@@ -107,6 +107,13 @@ struct WatcherTrackerApp: App {
                 )
         }
         
+        Window(
+            "Apple Image Playground",
+            id: "apple-image-playground"
+        ) {
+            ImagePlaygroundGeneratorView()
+        }
+                
         Settings {
             SettingsView()
         }

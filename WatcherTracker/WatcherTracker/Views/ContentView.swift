@@ -283,6 +283,15 @@ struct ContentView: View {
                 )
             }
             
+            Button {
+                openWindow(id: "apple-image-playground")
+            } label: {
+                Label(
+                    "Apple AI",
+                    systemImage: "sparkles"
+                )
+            }
+                        
             Button("Process") {
                 processSelectedFile()
             }
