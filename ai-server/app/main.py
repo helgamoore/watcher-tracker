@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.generator import JuggernautGenerator
 from app.models import GenerationRequest
@@ -16,6 +17,17 @@ generator = JuggernautGenerator()
 
 output_folder = Path(
     "/tmp/watchertracker-ai"
+)
+
+output_folder.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+app.mount(
+    "/images",
+    StaticFiles(directory=output_folder),
+    name="images",
 )
 
 
@@ -45,7 +57,7 @@ def info():
 def generate(
     request: GenerationRequest
 ):
-    return generator.generate(
+    result = generator.generate(
         prompt=request.prompt,
         negative_prompt=
             request.negative_prompt,
@@ -57,6 +69,23 @@ def generate(
         seed=request.seed,
         output_folder=output_folder,
     )
+
+    image_path = Path(
+        result["image_path"]
+    )
+
+    return {
+        "image_url":
+            f"/images/{image_path.name}",
+        "seed":
+            result["seed"],
+        "generation_seconds":
+            result["generation_seconds"],
+        "width":
+            result["width"],
+        "height":
+            result["height"],
+    }
 
 
 @app.post("/unload")
