@@ -12,11 +12,28 @@ struct WatcherTrackerApp: App {
 
     @StateObject private var appState = AppState()
 
+    @AppStorage("watchersWindowOpen")
+    private var watchersWindowOpen = false
+
+    @AppStorage("favouritesWindowOpen")
+    private var favouritesWindowOpen = false
+
+    @AppStorage("reportWindowOpen")
+    private var reportWindowOpen = false
+
+    @AppStorage("historyWindowOpen")
+    private var historyWindowOpen = false
+    
     var body: some Scene {
 
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
+                .background(
+                    WindowFrameAutosaver(
+                        name: "MainWindow"
+                    )
+                )
         }
 
         Window(
@@ -25,6 +42,16 @@ struct WatcherTrackerApp: App {
         ) {
             WatcherListView()
                 .environmentObject(appState)
+                .background(
+                    WindowFrameAutosaver(
+                        name: "WatcherListWindow"
+                    )
+                )
+                .background(
+                    WindowOpenStateTracker(
+                        storageKey: "watcherListWindowOpen"
+                    )
+                )
         }
         
         Window(
@@ -33,6 +60,33 @@ struct WatcherTrackerApp: App {
         ) {
             FavouritesView()
                 .environmentObject(appState)
+                .background(
+                    WindowFrameAutosaver(
+                        name: "FavouritesWindow"
+                    )
+                )
+                .background(
+                    WindowOpenStateTracker(
+                        storageKey: "favouritesWindowOpen"
+                    )
+                )
+        }
+        
+        Window(
+            "Report History",
+            id: "report-history"
+        ) {
+            ReportHistoryView()
+                .background(
+                    WindowFrameAutosaver(
+                        name: "ReportHistoryWindow"
+                    )
+                )
+                .background(
+                    WindowOpenStateTracker(
+                        storageKey: "reportHistoryWindowOpen"
+                    )
+                )
         }
         
         Window(
@@ -41,8 +95,25 @@ struct WatcherTrackerApp: App {
         ) {
             ReportView()
                 .environmentObject(appState)
+                .background(
+                    WindowFrameAutosaver(
+                        name: "LatestReportWindow"
+                    )
+                )
+                .background(
+                    WindowOpenStateTracker(
+                        storageKey: "latestReportWindowOpen"
+                    )
+                )
         }
         
+        Window(
+            "Apple Image Playground",
+            id: "apple-image-playground"
+        ) {
+            ImagePlaygroundGeneratorView()
+        }
+                
         Settings {
             SettingsView()
         }

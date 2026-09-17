@@ -77,3 +77,12 @@ dist/
 
 # Local testing files
 testing/
+
+# Pythion virtual environment
+ai-server/.venv/
+ai-server/__pycache__/
+ai-server/app/__pycache__/
+*.pyc
+
+# AI server
+.runtime/

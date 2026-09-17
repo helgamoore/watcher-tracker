@@ -19,6 +19,18 @@ struct ContentView: View {
     
     @State private var folderWatcher = FolderWatcher()
 
+    @AppStorage("watchersWindowOpen")
+    private var watchersWindowOpen = false
+
+    @AppStorage("favouritesWindowOpen")
+    private var favouritesWindowOpen = false
+
+    @AppStorage("reportWindowOpen")
+    private var reportWindowOpen = false
+
+    @AppStorage("historyWindowOpen")
+    private var historyWindowOpen = false
+    
     @AppStorage("deviantArtUsername")
     private var deviantArtUsername = ""
     
@@ -65,6 +77,22 @@ struct ContentView: View {
         )
         .onAppear {
             restoreState()
+            
+            if watchersWindowOpen {
+                openWindow(id: "watchers")
+            }
+
+            if favouritesWindowOpen {
+                openWindow(id: "favourites")
+            }
+
+            if reportWindowOpen {
+                openWindow(id: "report")
+            }
+
+            if historyWindowOpen {
+                openWindow(id: "report-history")
+            }
         }
     }
 
@@ -246,6 +274,24 @@ struct ContentView: View {
                 )
             }
             
+            Button {
+                openWindow(id: "report-history")
+            } label: {
+                Label(
+                    "Report History",
+                    systemImage: "calendar"
+                )
+            }
+            
+            Button {
+                openWindow(id: "apple-image-playground")
+            } label: {
+                Label(
+                    "Apple AI",
+                    systemImage: "sparkles"
+                )
+            }
+                        
             Button("Process") {
                 processSelectedFile()
             }
