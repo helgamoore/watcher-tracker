@@ -11,6 +11,11 @@ from fastapi.staticfiles import StaticFiles
 from app.generator import JuggernautGenerator
 from app.models import GenerationRequest
 
+import os
+
+from pathlib import Path
+
+log_file = Path(os.environ["LOG_FILE"])
 
 SERVER_VERSION = "0.2.0"
 OUTPUT_MAX_AGE = timedelta(days=1)
@@ -105,6 +110,7 @@ def info():
         "name": "WatcherTracker Local AI",
         "version": SERVER_VERSION,
         "backend": "mps",
+        "log_file": log_file,
         "models": [
             "juggernaut-xl-v9"
         ],

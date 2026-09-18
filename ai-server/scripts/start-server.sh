@@ -7,7 +7,7 @@ SERVER_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 RUNTIME_DIR="$SERVER_DIR/.runtime"
 PID_FILE="$RUNTIME_DIR/server.pid"
-LOG_FILE="$RUNTIME_DIR/server.log"
+export LOG_FILE="$RUNTIME_DIR/server.log"
 
 PYTHON="$SERVER_DIR/.venv/bin/python"
 
