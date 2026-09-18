@@ -86,3 +86,6 @@ ai-server/app/__pycache__/
 
 # AI server
 .runtime/
+
+# Debugging
+debugging/
