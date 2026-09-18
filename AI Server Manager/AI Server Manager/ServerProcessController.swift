@@ -7,98 +7,124 @@
 
 import Foundation
 
-@MainActor
 final class ServerProcessController {
-
-    private var process: Process?
 
     private let serverFolder = URL(
         fileURLWithPath:
             "/Volumes/Samsung/Users/helga/projects/watcher-tracker/ai-server"
     )
 
-    private var pythonURL: URL {
+    private var scriptsFolder: URL {
         serverFolder
-            .appendingPathComponent(".venv")
-            .appendingPathComponent("bin")
-            .appendingPathComponent("python")
+            .appendingPathComponent("scripts")
     }
 
-    var isProcessRunning: Bool {
-        process?.isRunning ?? false
+    private var startScript: URL {
+        scriptsFolder
+            .appendingPathComponent("start-server.sh")
     }
 
-    func start() throws {
-        guard !isProcessRunning else {
-            return
+    private var stopScript: URL {
+        scriptsFolder
+            .appendingPathComponent("stop-server.sh")
+    }
+
+    private var statusScript: URL {
+        scriptsFolder
+            .appendingPathComponent("status-server.sh")
+    }
+
+    func start() async throws {
+        try await runScript(startScript)
+    }
+
+    func stop() async throws {
+        try await runScript(stopScript)
+    }
+
+    func isProcessRunning() async -> Bool {
+        do {
+            try await runScript(statusScript)
+            return true
+        } catch {
+            return false
         }
+    }
 
-        let process = Process()
+    private func runScript(
+        _ scriptURL: URL
+    ) async throws {
 
-        process.executableURL = pythonURL
+        try await Task.detached {
 
-        process.arguments = [
-            "-m",
-            "uvicorn",
-            "app.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            "8765"
-        ]
+            let process = Process()
 
-        process.currentDirectoryURL =
-            serverFolder
-
-        let logURL = serverFolder
-            .appendingPathComponent(".runtime")
-            .appendingPathComponent("server-manager.log")
-
-        try FileManager.default.createDirectory(
-            at: logURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-
-        if !FileManager.default.fileExists(
-            atPath: logURL.path
-        ) {
-            FileManager.default.createFile(
-                atPath: logURL.path,
-                contents: nil
+            process.executableURL = URL(
+                fileURLWithPath: "/bin/bash"
             )
-        }
 
-        let logHandle = try FileHandle(
-            forWritingTo: logURL
-        )
+            process.arguments = [
+                scriptURL.path
+            ]
 
-        try logHandle.seekToEnd()
+            process.currentDirectoryURL =
+                self.serverFolder
 
-        process.standardOutput = logHandle
-        process.standardError = logHandle
+            let outputPipe = Pipe()
+            let errorPipe = Pipe()
 
-        process.terminationHandler = { process in
-            print(
-                "AI server terminated with status:",
-                process.terminationStatus
-            )
-        }
+            process.standardOutput = outputPipe
+            process.standardError = errorPipe
 
-        try process.run()
+            try process.run()
+            process.waitUntilExit()
 
-        self.process = process
+            let outputData =
+                outputPipe.fileHandleForReading
+                    .readDataToEndOfFile()
+
+            let errorData =
+                errorPipe.fileHandleForReading
+                    .readDataToEndOfFile()
+
+            let output =
+                String(
+                    data: outputData,
+                    encoding: .utf8
+                ) ?? ""
+
+            let error =
+                String(
+                    data: errorData,
+                    encoding: .utf8
+                ) ?? ""
+
+            if !output.isEmpty {
+                print(output)
+            }
+
+            guard process.terminationStatus == 0 else {
+                throw ServerProcessError.scriptFailed(
+                    error.isEmpty
+                        ? output
+                        : error
+                )
+            }
+        }.value
     }
+}
 
-    func stop() {
-        guard let process else {
-            return
+enum ServerProcessError:
+    LocalizedError
+{
+    case scriptFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .scriptFailed(let message):
+            return message.isEmpty
+                ? "Server script failed."
+                : message
         }
-
-        guard process.isRunning else {
-            self.process = nil
-            return
-        }
-
-        process.terminate()
     }
 }

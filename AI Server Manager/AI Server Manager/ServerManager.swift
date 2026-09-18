@@ -28,21 +28,14 @@ final class ServerManager: ObservableObject {
 
     private var monitoringTask: Task<Void, Never>?
 
+    private var isPanelVisible = false
+    
     func startMonitoring() {
         guard monitoringTask == nil else {
             return
         }
 
-        monitoringTask = Task {
-            while !Task.isCancelled {
-
-                await refreshStatus()
-
-                try? await Task.sleep(
-                    for: .seconds(1)
-                )
-            }
-        }
+        createMonitoringTask()
     }
 
     func stopMonitoring() {
@@ -50,9 +43,50 @@ final class ServerManager: ObservableObject {
         monitoringTask = nil
     }
 
+    func setPanelVisible(_ visible: Bool) {
+        guard isPanelVisible != visible else {
+            return
+        }
+
+        isPanelVisible = visible
+
+        // Restart the polling loop so the new interval
+        // takes effect immediately.
+        monitoringTask?.cancel()
+        monitoringTask = nil
+
+        createMonitoringTask()
+    }
+
+    private func createMonitoringTask() {
+        monitoringTask = Task { [weak self] in
+            guard let self else {
+                return
+            }
+
+            while !Task.isCancelled {
+                await refreshStatus()
+
+                let interval: Duration =
+                    isPanelVisible
+                    ? .seconds(1)
+                    : .seconds(10)
+
+                do {
+                    try await Task.sleep(
+                        for: interval
+                    )
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
     func refreshStatus() async {
         do {
-            let serverInfo = try await api.info()
+            let serverInfo =
+                try await api.info()
 
             info = serverInfo
             errorMessage = nil
@@ -65,8 +99,17 @@ final class ServerManager: ObservableObject {
 
             info = nil
 
-            if processController.isProcessRunning {
+            if state == .starting {
+                return
+            }
+
+            let processRunning =
+                await processController
+                    .isProcessRunning()
+
+            if processRunning {
                 state = .unavailable
+
                 errorMessage =
                     "Server process is running but the API is unavailable."
             } else {
@@ -86,34 +129,67 @@ final class ServerManager: ObservableObject {
         state = .starting
         errorMessage = nil
 
-        do {
-            try processController.start()
+        Task {
+            do {
+                try await processController.start()
 
-            Task {
-                // Give Uvicorn a moment to start.
-                try? await Task.sleep(
-                    for: .seconds(1)
-                )
+                await waitForServerStartup()
 
-                await refreshStatus()
+            } catch {
+                state = .unavailable
+                errorMessage =
+                    "Starting server failed: \(error.localizedDescription)"
             }
-
-        } catch {
-            state = .unavailable
-            errorMessage =
-                "Starting server failed: \(error.localizedDescription)"
         }
     }
 
-    func stopServer() {
-        processController.stop()
+    private func waitForServerStartup() async {
 
-        Task {
+        for _ in 0..<30 {
+
+            do {
+                let serverInfo =
+                    try await api.info()
+
+                info = serverInfo
+                errorMessage = nil
+
+                state = serverInfo.busy
+                    ? .busy
+                    : .idle
+
+                return
+
+            } catch {
+                // Uvicorn is still starting.
+            }
+
             try? await Task.sleep(
                 for: .milliseconds(500)
             )
+        }
 
-            await refreshStatus()
+        state = .unavailable
+
+        errorMessage =
+            "Server process started, but the API did not become available."
+    }
+    
+    func stopServer() {
+        Task {
+            do {
+                try await processController.stop()
+
+                info = nil
+                state = .stopped
+                errorMessage = nil
+
+            } catch {
+                errorMessage =
+                    "Stopping server failed: \(error.localizedDescription)"
+
+                await refreshStatus()
+            }
         }
     }
 

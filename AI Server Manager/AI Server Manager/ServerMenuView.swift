@@ -50,8 +50,14 @@ struct ServerMenuView: View {
         }
         .padding(16)
         .frame(width: 420)
+        .onAppear {
+            manager.setPanelVisible(true)
+        }
+        .onDisappear {
+            manager.setPanelVisible(false)
+        }
     }
-
+    
     private var header: some View {
         HStack {
 

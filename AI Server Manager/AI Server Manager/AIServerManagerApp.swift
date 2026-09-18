@@ -11,8 +11,7 @@ import SwiftUI
 struct AIServerManagerApp: App {
 
     @StateObject
-    private var manager =
-        ServerManager()
+    private var manager = ServerManager()
 
     var body: some Scene {
 
@@ -27,11 +26,10 @@ struct AIServerManagerApp: App {
                 systemImage:
                     manager.state.systemImage
             )
+            .onAppear {
+                manager.startMonitoring()
+            }
         }
         .menuBarExtraStyle(.window)
-    }
-
-    init() {
-        // Nothing here yet.
     }
 }
