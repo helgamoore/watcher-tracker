@@ -76,5 +76,19 @@ struct AIServerManagerApp: App {
                 manager: manager
             )
         }
+        
+        Window(
+            "Test Generation",
+            id: "test-generation"
+        ) {
+            TestGenerationView(
+                manager: manager
+            )
+            .frame(
+                width: 560,
+                height: 340
+            )
+        }
+        .windowResizability(.contentSize)
     }
 }

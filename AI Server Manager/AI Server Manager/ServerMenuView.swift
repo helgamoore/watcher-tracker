@@ -338,6 +338,16 @@ struct ServerMenuView: View {
             }
 
             HStack {
+                Button("Test Generation…") {
+                    openWindow(
+                        id: "test-generation"
+                    )
+                }
+                .disabled(
+                    manager.state == .stopped ||
+                    manager.state == .busy
+                )
+                
                 Spacer()
 
                 Button("Quit Server Manager") {

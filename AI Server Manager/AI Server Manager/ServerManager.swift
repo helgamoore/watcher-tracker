@@ -25,6 +25,9 @@ final class ServerManager: ObservableObject {
     var generatedFiles:
         [GeneratedImageFile] = []
     
+    @Published private(set)
+    var testGenerationRunning = false
+    
     private let api = ServerAPIClient()
 
     private let processController =
@@ -249,5 +252,38 @@ final class ServerManager: ObservableObject {
         for file: GeneratedImageFile
     ) -> URL? {
         api.imageURL(for: file)
+    }
+    
+    func generateTestImage(
+        prompt: String
+    ) async {
+
+        guard !prompt
+            .trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+            .isEmpty
+        else {
+            return
+        }
+
+        testGenerationRunning = true
+
+        defer {
+            testGenerationRunning = false
+        }
+
+        do {
+            try await api.generateTestImage(
+                prompt: prompt
+            )
+
+            await refreshStatus()
+            await refreshGeneratedFiles()
+
+        } catch {
+            errorMessage =
+                "Test generation failed: \(error.localizedDescription)"
+        }
     }
 }

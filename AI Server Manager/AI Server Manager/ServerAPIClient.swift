@@ -146,6 +146,61 @@ struct ServerAPIClient {
             throw ServerAPIError.invalidResponse
         }
     }
+    
+    func generateTestImage(
+        prompt: String
+    ) async throws {
+
+        let url =
+            baseURL.appendingPathComponent(
+                "generate"
+            )
+
+        let body: [String: Any] = [
+            "prompt": prompt,
+            "negative_prompt":
+                "blurry, low quality, distorted",
+            "width": 512,
+            "height": 512,
+            "steps": 12,
+            "guidance_scale": 5.5
+        ]
+
+        let data =
+            try JSONSerialization.data(
+                withJSONObject: body
+            )
+
+        var request =
+            URLRequest(url: url)
+
+        request.httpMethod = "POST"
+
+        request.setValue(
+            "application/json",
+            forHTTPHeaderField:
+                "Content-Type"
+        )
+
+        request.httpBody = data
+
+        // Local image generation can easily
+        // take longer than a normal API call.
+        request.timeoutInterval = 600
+
+        let (_, response) =
+            try await URLSession.shared.data(
+                for: request
+            )
+
+        guard
+            let httpResponse =
+                response as? HTTPURLResponse,
+            200..<300 ~= httpResponse.statusCode
+        else {
+            throw ServerAPIError.invalidResponse
+        }
+    }
 }
 
 enum ServerAPIError: Error {
