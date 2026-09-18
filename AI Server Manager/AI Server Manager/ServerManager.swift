@@ -21,6 +21,10 @@ final class ServerManager: ObservableObject {
     @Published private(set)
     var errorMessage: String?
 
+    @Published private(set)
+    var generatedFiles:
+        [GeneratedImageFile] = []
+    
     private let api = ServerAPIClient()
 
     private let processController =
@@ -197,5 +201,53 @@ final class ServerManager: ObservableObject {
         NSWorkspace.shared.open(
             api.swaggerURL
         )
+    }
+    
+    func refreshGeneratedFiles() async {
+        do {
+            generatedFiles =
+                try await api.generatedFiles()
+
+            errorMessage = nil
+
+        } catch {
+            errorMessage =
+                "Loading generated images failed: \(error.localizedDescription)"
+        }
+    }
+
+    func deleteGeneratedFile(
+        _ file: GeneratedImageFile
+    ) async {
+        do {
+            try await api.deleteGeneratedFile(
+                file
+            )
+
+            await refreshGeneratedFiles()
+
+        } catch {
+            errorMessage =
+                "Deleting image failed: \(error.localizedDescription)"
+        }
+    }
+
+    func deleteAllGeneratedFiles() async {
+        do {
+            try await api
+                .deleteAllGeneratedFiles()
+
+            generatedFiles = []
+
+        } catch {
+            errorMessage =
+                "Deleting images failed: \(error.localizedDescription)"
+        }
+    }
+
+    func imageURL(
+        for file: GeneratedImageFile
+    ) -> URL? {
+        api.imageURL(for: file)
     }
 }

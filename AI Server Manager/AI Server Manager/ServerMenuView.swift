@@ -13,6 +13,9 @@ struct ServerMenuView: View {
     @ObservedObject
     var manager: ServerManager
 
+    @Environment(\.openWindow)
+    private var openWindow
+    
     var body: some View {
         VStack(
             alignment: .leading,
@@ -297,6 +300,15 @@ struct ServerMenuView: View {
                     manager.state == .stopped
                 )
 
+                Button("Generated Images") {
+                    openWindow(
+                        id: "generated-images"
+                    )
+                }
+                .disabled(
+                    manager.state == .stopped
+                )
+                
                 Spacer()
 
                 Button("Open Swagger") {

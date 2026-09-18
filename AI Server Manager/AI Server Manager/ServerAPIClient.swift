@@ -55,6 +55,97 @@ struct ServerAPIClient {
     var swaggerURL: URL {
         baseURL.appendingPathComponent("docs")
     }
+    
+    func generatedFiles() async throws
+        -> [GeneratedImageFile]
+    {
+        let url =
+            baseURL.appendingPathComponent(
+                "generated-files"
+            )
+
+        let (data, response) =
+            try await URLSession.shared.data(
+                from: url
+            )
+
+        try validate(response)
+
+        return try JSONDecoder()
+            .decode(
+                GeneratedFilesResponse.self,
+                from: data
+            )
+            .files
+    }
+
+    func deleteGeneratedFile(
+        _ file: GeneratedImageFile
+    ) async throws {
+
+        let url =
+            baseURL
+                .appendingPathComponent(
+                    "generated-files"
+                )
+                .appendingPathComponent(
+                    file.filename
+                )
+
+        var request = URLRequest(
+            url: url
+        )
+
+        request.httpMethod = "DELETE"
+
+        let (_, response) =
+            try await URLSession.shared.data(
+                for: request
+            )
+
+        try validate(response)
+    }
+
+    func deleteAllGeneratedFiles() async throws {
+        let url =
+            baseURL.appendingPathComponent(
+                "generated-files"
+            )
+
+        var request = URLRequest(
+            url: url
+        )
+
+        request.httpMethod = "DELETE"
+
+        let (_, response) =
+            try await URLSession.shared.data(
+                for: request
+            )
+
+        try validate(response)
+    }
+
+    func imageURL(
+        for file: GeneratedImageFile
+    ) -> URL? {
+        URL(
+            string: file.imageURL,
+            relativeTo: baseURL
+        )?.absoluteURL
+    }
+
+    private func validate(
+        _ response: URLResponse
+    ) throws {
+        guard
+            let httpResponse =
+                response as? HTTPURLResponse,
+            200..<300 ~= httpResponse.statusCode
+        else {
+            throw ServerAPIError.invalidResponse
+        }
+    }
 }
 
 enum ServerAPIError: Error {

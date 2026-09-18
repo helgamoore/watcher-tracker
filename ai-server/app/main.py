@@ -4,7 +4,7 @@ from pathlib import Path
 from threading import Lock
 from urllib.parse import quote
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -24,6 +24,20 @@ output_folder.mkdir(
     exist_ok=True,
 )
 
+def generated_file_path(filename: str) -> Path:
+    if Path(filename).name != filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid filename.",
+        )
+
+    if not filename.lower().endswith(".png"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only PNG files can be deleted.",
+        )
+
+    return output_folder / filename
 
 def cleanup_generated_files(folder: Path) -> int:
     cutoff = datetime.now(timezone.utc) - OUTPUT_MAX_AGE
@@ -209,4 +223,50 @@ def unload():
     return {
         "status": "ok",
         "model_loaded": generator.is_loaded,
+    }
+
+@app.delete("/generated-files/{filename}")
+def delete_generated_file(filename: str):
+    file_path = generated_file_path(filename)
+
+    if (
+        generation_lock.locked()
+        and generator.output_filename == filename
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete the image currently being generated.",
+        )
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Generated image not found.",
+        )
+
+    file_path.unlink()
+
+    return {
+        "status": "ok",
+        "deleted": filename,
+    }
+
+@app.delete("/generated-files")
+def delete_all_generated_files():
+    if generation_lock.locked():
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete generated images while generation is in progress.",
+        )
+
+    deleted_count = 0
+
+    for file in output_folder.glob("*.png"):
+        if file.is_file():
+            file.unlink()
+            deleted_count += 1
+
+    return {
+        "status": "ok",
+        "deleted_count": deleted_count,
     }

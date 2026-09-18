@@ -20,7 +20,6 @@ struct AIServerManagerApp: App {
                 manager: manager
             )
         } label: {
-
             Label(
                 "Local AI Server",
                 systemImage:
@@ -31,5 +30,14 @@ struct AIServerManagerApp: App {
             }
         }
         .menuBarExtraStyle(.window)
+
+        Window(
+            "Generated Images",
+            id: "generated-images"
+        ) {
+            GeneratedImagesView(
+                manager: manager
+            )
+        }
     }
 }
