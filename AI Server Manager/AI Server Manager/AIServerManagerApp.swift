@@ -6,12 +6,40 @@
 //
 
 import SwiftUI
+import AppKit
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+
+    func applicationDidFinishLaunching(
+        _ notification: Notification
+    ) {
+        let bundleIdentifier =
+            Bundle.main.bundleIdentifier
+
+        guard let bundleIdentifier else {
+            return
+        }
+
+        let runningInstances =
+            NSRunningApplication.runningApplications(
+                withBundleIdentifier: bundleIdentifier
+            )
+
+        if runningInstances.count > 1 {
+            NSApp.terminate(nil)
+        }
+    }
+}
 
 @main
 struct AIServerManagerApp: App {
 
+    @NSApplicationDelegateAdaptor(AppDelegate.self)
+    private var appDelegate
+
     @StateObject
-    private var manager = ServerManager()
+    private var manager =
+        ServerManager()
 
     var body: some Scene {
 
