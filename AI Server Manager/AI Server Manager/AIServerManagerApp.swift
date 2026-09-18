@@ -67,5 +67,14 @@ struct AIServerManagerApp: App {
                 manager: manager
             )
         }
+        
+        Window(
+            "Server Log",
+            id: "server-log"
+        ) {
+            ServerLogView(
+                manager: manager
+            )
+        }
     }
 }

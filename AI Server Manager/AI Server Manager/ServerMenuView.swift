@@ -284,7 +284,6 @@ struct ServerMenuView: View {
         VStack(spacing: 8) {
 
             HStack {
-
                 Button("Start Server") {
                     manager.startServer()
                 }
@@ -300,6 +299,16 @@ struct ServerMenuView: View {
                     manager.state == .stopped
                 )
 
+                Spacer()
+
+                Button("Refresh") {
+                    Task {
+                        await manager.refreshStatus()
+                    }
+                }
+            }
+
+            HStack {
                 Button("Generated Images") {
                     openWindow(
                         id: "generated-images"
@@ -308,7 +317,16 @@ struct ServerMenuView: View {
                 .disabled(
                     manager.state == .stopped
                 )
-                
+
+                Button("Server Log") {
+                    openWindow(
+                        id: "server-log"
+                    )
+                }
+                .disabled(
+                    manager.info?.logFile == nil
+                )
+
                 Spacer()
 
                 Button("Open Swagger") {
@@ -320,13 +338,6 @@ struct ServerMenuView: View {
             }
 
             HStack {
-
-                Button("Refresh") {
-                    Task {
-                        await manager.refreshStatus()
-                    }
-                }
-
                 Spacer()
 
                 Button("Quit Server Manager") {

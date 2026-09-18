@@ -34,6 +34,8 @@ struct ServerInfo: Codable {
     let currentStep: Int?
     let totalSteps: Int?
 
+    let logFile: String?
+    
     enum CodingKeys: String, CodingKey {
         case name
         case version
@@ -60,5 +62,7 @@ struct ServerInfo: Codable {
         case progressPercent = "progress_percent"
         case currentStep = "current_step"
         case totalSteps = "total_steps"
+        
+        case logFile = "log_file"
     }
 }
