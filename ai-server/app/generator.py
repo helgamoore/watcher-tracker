@@ -1,6 +1,7 @@
 import gc
 import random
 import time
+from datetime import datetime
 from pathlib import Path
 
 import torch
@@ -12,6 +13,21 @@ class JuggernautGenerator:
         self.model_id = "RunDiffusion/Juggernaut-XL-v9"
         self.pipe: StableDiffusionXLPipeline | None = None
 
+        self.state = "idle"
+
+        self.prompt: str | None = None
+        self.negative_prompt: str | None = None
+        self.width: int | None = None
+        self.height: int | None = None
+        self.guidance_scale: float | None = None
+        self.seed: int | None = None
+
+        self.current_step: int | None = None
+        self.total_steps: int | None = None
+        self.progress_percent: int | None = None
+
+        self.output_filename: str | None = None
+
     @property
     def is_loaded(self) -> bool:
         return self.pipe is not None
@@ -20,6 +36,7 @@ class JuggernautGenerator:
         if self.pipe is not None:
             return
 
+        self.state = "loading"
         print("Loading Juggernaut XL...")
 
         self.pipe = StableDiffusionXLPipeline.from_pretrained(
@@ -59,52 +76,100 @@ class JuggernautGenerator:
         seed: int | None,
         output_folder: Path,
     ) -> dict:
-
-        self.load()
-
-        if self.pipe is None:
-            raise RuntimeError("Pipeline failed to load.")
-
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
 
-        generator = torch.Generator(
-            device="cpu"
-        ).manual_seed(seed)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]
+        filename = f"Juggernaut-Image-{timestamp}.png"
 
-        output_folder.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+        # Store request details before model loading so /info can report them
+        # during the complete lifetime of the request.
+        self.prompt = prompt
+        self.negative_prompt = negative_prompt
+        self.width = width
+        self.height = height
+        self.guidance_scale = guidance_scale
+        self.seed = seed
 
-        started = time.perf_counter()
+        self.current_step = 0
+        self.total_steps = steps
+        self.progress_percent = 0
+        self.output_filename = filename
 
-        image = self.pipe(
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            width=width,
-            height=height,
-            num_inference_steps=steps,
-            guidance_scale=guidance_scale,
-            generator=generator,
-        ).images[0]
+        try:
+            self.load()
 
-        generation_seconds = (
-            time.perf_counter() - started
-        )
+            if self.pipe is None:
+                raise RuntimeError("Pipeline failed to load.")
 
-        filename = f"juggernaut_{seed}.png"
+            generator = torch.Generator(device="cpu").manual_seed(seed)
 
-        output_path = (
-            output_folder / filename
-        )
+            output_folder.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
 
-        image.save(output_path)
+            self.state = "generating"
 
-        return {
-            "image_path": str(output_path),
-            "seed": seed,
-            "generation_seconds": generation_seconds,
-            "width": width,
-            "height": height,
-        }
+            def progress_callback(
+                pipeline,
+                step_index,
+                timestep,
+                callback_kwargs,
+            ):
+                self.current_step = step_index + 1
+
+                if self.total_steps:
+                    self.progress_percent = round(
+                        self.current_step / self.total_steps * 100
+                    )
+
+                return callback_kwargs
+
+            started = time.perf_counter()
+
+            image = self.pipe(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                width=width,
+                height=height,
+                num_inference_steps=steps,
+                guidance_scale=guidance_scale,
+                generator=generator,
+                callback_on_step_end=progress_callback,
+            ).images[0]
+
+            generation_seconds = time.perf_counter() - started
+
+            self.state = "saving"
+
+            output_path = output_folder / filename
+            image.save(output_path)
+
+            self.current_step = steps
+            self.progress_percent = 100
+
+            return {
+                "image_path": str(output_path),
+                "filename": filename,
+                "seed": seed,
+                "generation_seconds": generation_seconds,
+                "width": width,
+                "height": height,
+            }
+
+        finally:
+            self.state = "idle"
+
+            self.prompt = None
+            self.negative_prompt = None
+            self.width = None
+            self.height = None
+            self.guidance_scale = None
+            self.seed = None
+
+            self.current_step = None
+            self.total_steps = None
+            self.progress_percent = None
+
+            self.output_filename = None
