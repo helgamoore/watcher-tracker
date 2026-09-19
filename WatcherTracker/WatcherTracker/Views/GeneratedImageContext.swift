@@ -4,7 +4,7 @@
 //
 //  Created by Helga Moore on 19/09/2026.
 //
-
+/*
 import Foundation
 
 struct GeneratedImageParameter:
@@ -24,3 +24,4 @@ struct GeneratedImageContext:
     let prompt: String
     let parameters: [GeneratedImageParameter]
 }
+*/

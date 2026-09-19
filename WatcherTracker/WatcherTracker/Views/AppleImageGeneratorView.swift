@@ -23,22 +23,46 @@ struct AppleImageGeneratorView: View {
     private var showingPlayground = false
 
     @State
-    private var generatedImageURL: URL?
+    private var generatedImage:
+        GeneratedImageContext?
 
     @State
     private var selectedStyle:
-        ImagePlaygroundStyle = .illustration
+        ImagePlaygroundStyle =
+            .illustration
 
     @State
     private var errorMessage: String?
 
-    private let allowedStyles:
-        [ImagePlaygroundStyle] = [
+    // MARK: - Available Styles
+
+    private var allowedStyles:
+        [ImagePlaygroundStyle]
+    {
+        var styles: [
+            ImagePlaygroundStyle
+        ] = [
             .illustration,
             .animation,
             .sketch,
             .externalProvider
         ]
+
+        if #available(macOS 27.0, *) {
+            styles.insert(
+                .any,
+                at: 0
+            )
+
+            styles.insert(
+                .emoji,
+                at: styles.endIndex - 1
+            )
+        }
+        return styles
+    }
+
+    // MARK: - Body
 
     var body: some View {
 
@@ -73,8 +97,27 @@ struct AppleImageGeneratorView: View {
                 nil,
             onCompletion: { url in
 
-                generatedImageURL =
-                    url
+                generatedImage =
+                    GeneratedImageContext(
+                        imageURL: url,
+                        provider:
+                            "Apple Image Playground",
+                        prompt:
+                            prompt
+                                .trimmingCharacters(
+                                    in:
+                                        .whitespacesAndNewlines
+                                ),
+                        parameters: [
+                            GeneratedImageParameter(
+                                name: "Style",
+                                value:
+                                    styleName(
+                                        selectedStyle
+                                    )
+                            )
+                        ]
+                    )
 
                 errorMessage =
                     nil
@@ -106,7 +149,9 @@ struct AppleImageGeneratorView: View {
                         "apple.logo"
                 )
                 .font(.title2)
-                .fontWeight(.semibold)
+                .fontWeight(
+                    .semibold
+                )
 
                 Text(
                     "Generate images using Apple Image Playground."
@@ -169,12 +214,18 @@ struct AppleImageGeneratorView: View {
                         $selectedStyle
                 ) {
 
-                    Text("Any")
-                        .tag(
-                            ImagePlaygroundStyle
-                                .any
-                        )
-                    
+                    if #available(
+                        macOS 27.0,
+                        *
+                    ) {
+
+                        Text("Any")
+                            .tag(
+                                ImagePlaygroundStyle
+                                    .any
+                            )
+                    }
+
                     Text("Illustration")
                         .tag(
                             ImagePlaygroundStyle
@@ -192,13 +243,19 @@ struct AppleImageGeneratorView: View {
                             ImagePlaygroundStyle
                                 .sketch
                         )
-                    
-                    Text("Emoji")
-                        .tag(
-                            ImagePlaygroundStyle
-                                .emoji
-                        )
-                
+
+                    if #available(
+                        macOS 27.0,
+                        *
+                    ) {
+
+                        Text("Emoji")
+                            .tag(
+                                ImagePlaygroundStyle
+                                    .emoji
+                            )
+                    }
+
                     Text(
                         "External Provider"
                     )
@@ -291,8 +348,7 @@ struct AppleImageGeneratorView: View {
                     saveImage()
                 }
                 .disabled(
-                    generatedImageURL ==
-                        nil
+                    generatedImage == nil
                 )
             }
 
@@ -300,7 +356,7 @@ struct AppleImageGeneratorView: View {
 
             previewContent
 
-            if generatedImageURL != nil {
+            if generatedImage != nil {
 
                 Text(
                     "Click the image to open a larger preview."
@@ -317,22 +373,25 @@ struct AppleImageGeneratorView: View {
     // MARK: - Preview Content
 
     @ViewBuilder
-    private var previewContent: some View {
+    private var previewContent:
+        some View
+    {
 
-        if let generatedImageURL {
+        if let generatedImage {
 
             Button {
-                
+
                 openWindow(
                     value:
-                        generatedImageURL
+                        generatedImage
                 )
 
             } label: {
 
                 AsyncImage(
                     url:
-                        generatedImageURL
+                        generatedImage
+                            .imageURL
                 ) { phase in
 
                     switch phase {
@@ -404,16 +463,59 @@ struct AppleImageGeneratorView: View {
         }
     }
 
+    // MARK: - Style Name
+
+    private func styleName(
+        _ style:
+            ImagePlaygroundStyle
+    ) -> String {
+
+        if #available(
+            macOS 27.0,
+            *
+        ) {
+
+            if style == .any {
+                return "Any"
+            }
+
+            if style == .emoji {
+                return "Emoji"
+            }
+        }
+
+        if style == .illustration {
+            return "Illustration"
+        }
+
+        if style == .animation {
+            return "Animation"
+        }
+
+        if style == .sketch {
+            return "Sketch"
+        }
+
+        if style == .externalProvider {
+            return "External Provider"
+        }
+
+        return "Unknown"
+    }
+
     // MARK: - Save
 
     @MainActor
     private func saveImage() {
 
         guard
-            let generatedImageURL
+            let generatedImage
         else {
             return
         }
+
+        let imageURL =
+            generatedImage.imageURL
 
         let panel =
             NSSavePanel()
@@ -425,18 +527,31 @@ struct AppleImageGeneratorView: View {
             "Save"
 
         panel.nameFieldStringValue =
-            generatedImageURL
+            imageURL
                 .lastPathComponent
                 .isEmpty
             ? "generated-image.png"
-            : generatedImageURL
+            : imageURL
                 .lastPathComponent
 
-        panel.allowedContentTypes = [
-            .png,
-            .jpeg,
-            .heic
-        ]
+        if
+            let type = UTType(
+                filenameExtension:
+                    imageURL.pathExtension
+            )
+        {
+            panel.allowedContentTypes = [
+                type
+            ]
+
+        } else {
+
+            panel.allowedContentTypes = [
+                .png,
+                .jpeg,
+                .heic
+            ]
+        }
 
         guard
             panel.runModal() == .OK,
@@ -446,28 +561,27 @@ struct AppleImageGeneratorView: View {
             return
         }
 
-        do {
+        Task {
 
-            let data =
-                try Data(
-                    contentsOf:
-                        generatedImageURL
-                )
+            do {
 
-            try data.write(
-                to:
-                    destinationURL,
-                options:
-                    .atomic
-            )
+                try await
+                    GeneratedImageExporter
+                        .export(
+                            context:
+                                generatedImage,
+                            to:
+                                destinationURL
+                        )
 
-            errorMessage =
-                nil
+                errorMessage =
+                    nil
 
-        } catch {
+            } catch {
 
-            errorMessage =
-                "Saving image error: \(error.localizedDescription)"
+                errorMessage =
+                    error.localizedDescription
+            }
         }
     }
 }

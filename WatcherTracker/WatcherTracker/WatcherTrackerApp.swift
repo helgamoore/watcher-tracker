@@ -137,22 +137,20 @@ struct WatcherTrackerApp: App {
              
         WindowGroup(
             "Image Preview",
-            for: URL.self
-        ) { $imageURL in
+            for: GeneratedImageContext.self
+        ) { $context in
 
-            if let imageURL {
+            if let context {
 
                 GeneratedImagePreviewView(
-                    imageURL:
-                        imageURL
+                    context: context
                 )
 
             } else {
 
                 ContentUnavailableView(
                     "No Image",
-                    systemImage:
-                        "photo"
+                    systemImage: "photo"
                 )
             }
         }
