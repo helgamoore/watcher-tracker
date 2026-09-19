@@ -4,20 +4,32 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
 
-    @EnvironmentObject private var appState: AppState
-    @Environment(\.openWindow) private var openWindow
-    
-    @State private var sourceFolderURL: URL?
-    @State private var archiveFolderURL: URL?
+    @EnvironmentObject
+    private var appState: AppState
 
-    @State private var sourceFiles: [URL] = []
-    @State private var selectedFile: URL?
+    @Environment(\.openWindow)
+    private var openWindow
 
-    @State private var lastProcessedFileName: String?
+    @State
+    private var sourceFolderURL: URL?
 
-    @State private var errorMessage: String?
-    
-    @State private var folderWatcher = FolderWatcher()
+    @State
+    private var archiveFolderURL: URL?
+
+    @State
+    private var sourceFiles: [URL] = []
+
+    @State
+    private var selectedFile: URL?
+
+    @State
+    private var lastProcessedFileName: String?
+
+    @State
+    private var errorMessage: String?
+
+    @State
+    private var folderWatcher = FolderWatcher()
 
     @AppStorage("watchersWindowOpen")
     private var watchersWindowOpen = false
@@ -30,29 +42,155 @@ struct ContentView: View {
 
     @AppStorage("historyWindowOpen")
     private var historyWindowOpen = false
-    
+
     @AppStorage("deviantArtUsername")
     private var deviantArtUsername = ""
-    
+
     private var watchersURL: URL? {
         guard !deviantArtUsername.isEmpty else {
             return nil
         }
 
         return URL(
-            string: "https://www.deviantart.com/\(deviantArtUsername)/about#watchers"
+            string:
+                "https://www.deviantart.com/\(deviantArtUsername)/about#watchers"
         )
     }
-    
-    private let bookmarkStore = BookmarkStore()
-    private let service = WatcherTrackerService()
-    private let archive = WatcherArchive()
-    private let favouritesStore = FavouriteArtistsStore()
-    
+
+    private let bookmarkStore =
+        BookmarkStore()
+
+    private let service =
+        WatcherTrackerService()
+
+    private let archive =
+        WatcherArchive()
+
+    private let favouritesStore =
+        FavouriteArtistsStore()
+
+    // MARK: - Body
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+
+        VStack(
+            alignment: .leading,
+            spacing: 20
+        ) {
 
             header
+
+            Divider()
+
+            HSplitView {
+
+                deviantArtWorkspace
+                    .frame(
+                        minWidth: 600,
+                        idealWidth: 720,
+                        maxWidth: .infinity,
+                        maxHeight: .infinity,
+                        alignment: .topLeading
+                    )
+
+                imageGenerationWorkspace
+                    .frame(
+                        minWidth: 280,
+                        idealWidth: 320,
+                        maxWidth: 380,
+                        maxHeight: .infinity,
+                        alignment: .topLeading
+                    )
+            }
+        }
+        .padding(24)
+        .frame(
+            minWidth: 1000,
+            minHeight: 600
+        )
+        .onAppear {
+            restoreState()
+
+            if watchersWindowOpen {
+                openWindow(
+                    id: "watchers"
+                )
+            }
+
+            if favouritesWindowOpen {
+                openWindow(
+                    id: "favourites"
+                )
+            }
+
+            if reportWindowOpen {
+                openWindow(
+                    id: "report"
+                )
+            }
+
+            if historyWindowOpen {
+                openWindow(
+                    id: "report-history"
+                )
+            }
+        }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+
+        VStack(
+            alignment: .leading,
+            spacing: 4
+        ) {
+
+            Label(
+                "WatcherTracker",
+                systemImage:
+                    "square.grid.2x2"
+            )
+            .font(.title2)
+
+            Text(
+                "DeviantArt tools and AI image generation."
+            )
+            .foregroundStyle(
+                .secondary
+            )
+        }
+    }
+
+    // MARK: - DeviantArt Workspace
+
+    private var deviantArtWorkspace: some View {
+
+        VStack(
+            alignment: .leading,
+            spacing: 16
+        ) {
+
+            VStack(
+                alignment: .leading,
+                spacing: 4
+            ) {
+
+                Label(
+                    "DeviantArt",
+                    systemImage:
+                        "person.2"
+                )
+                .font(.title3)
+                .fontWeight(.semibold)
+
+                Text(
+                    "Import watcher lists, review changes, and manage tracked artists."
+                )
+                .foregroundStyle(
+                    .secondary
+                )
+            }
 
             Divider()
 
@@ -68,58 +206,187 @@ struct ContentView: View {
 
             statusSection
 
-            bottomBar
+            Divider()
+
+            deviantArtActions
         }
-        .padding(24)
-        .frame(
-            minWidth: 650,
-            minHeight: 520
-        )
-        .onAppear {
-            restoreState()
-            
-            if watchersWindowOpen {
-                openWindow(id: "watchers")
-            }
-
-            if favouritesWindowOpen {
-                openWindow(id: "favourites")
-            }
-
-            if reportWindowOpen {
-                openWindow(id: "report")
-            }
-
-            if historyWindowOpen {
-                openWindow(id: "report-history")
-            }
-        }
+        .padding(.trailing, 16)
     }
 
-    // MARK: - Header
+    // MARK: - Image Generation Workspace
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private var imageGenerationWorkspace: some View {
 
-            Label(
-                "WatcherTracker",
-                systemImage: "person.2"
+        VStack(
+            alignment: .leading,
+            spacing: 16
+        ) {
+
+            VStack(
+                alignment: .leading,
+                spacing: 4
+            ) {
+
+                Label(
+                    "Image Generation",
+                    systemImage:
+                        "photo.on.rectangle.angled"
+                )
+                .font(.title3)
+                .fontWeight(.semibold)
+
+                Text(
+                    "Choose an image-generation provider."
+                )
+                .foregroundStyle(
+                    .secondary
+                )
+            }
+
+            Divider()
+
+            generatorButton(
+                title: "Local AI",
+                subtitle:
+                    "Juggernaut XL · Local server",
+                systemImage: "cpu",
+                windowID:
+                    "local-image-generator"
             )
-            .font(.title2)
 
-            Text(
-                "Import and archive DeviantArt watcher lists."
+            generatorButton(
+                title: "Apple",
+                subtitle:
+                    "Apple Image Playground",
+                systemImage:
+                    "apple.logo",
+                windowID:
+                    "apple-image-playground"
             )
-            .foregroundStyle(.secondary)
+
+            generatorButton(
+                title: "Gemini",
+                subtitle:
+                    "Google image generation",
+                systemImage:
+                    "sparkles",
+                windowID:
+                    "gemini-image-generator"
+            )
+
+            generatorButton(
+                title: "ChatGPT",
+                subtitle:
+                    "OpenAI image generation",
+                systemImage:
+                    "bubble.left.and.bubble.right",
+                windowID:
+                    "chatgpt-image-generator"
+            )
+
+            Spacer()
         }
+        .padding(.leading, 16)
+    }
+
+    // MARK: - Generator Button
+
+    private func generatorButton(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        windowID: String
+    ) -> some View {
+
+        Button {
+
+            openWindow(
+                id: windowID
+            )
+
+        } label: {
+
+            HStack(
+                spacing: 12
+            ) {
+
+                Image(
+                    systemName:
+                        systemImage
+                )
+                .font(.title2)
+                .frame(
+                    width: 30
+                )
+
+                VStack(
+                    alignment: .leading,
+                    spacing: 2
+                ) {
+
+                    Text(title)
+                        .fontWeight(
+                            .medium
+                        )
+
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(
+                            .secondary
+                        )
+                }
+
+                Spacer()
+
+                Image(
+                    systemName:
+                        "chevron.right"
+                )
+                .font(.caption)
+                .foregroundStyle(
+                    .tertiary
+                )
+            }
+            .padding(12)
+            .contentShape(
+                Rectangle()
+            )
+            .background {
+
+                RoundedRectangle(
+                    cornerRadius: 8
+                )
+                .fill(
+                    Color(
+                        nsColor:
+                            .controlBackgroundColor
+                    )
+                )
+            }
+            .overlay {
+
+                RoundedRectangle(
+                    cornerRadius: 8
+                )
+                .stroke(
+                    Color.secondary
+                        .opacity(0.15)
+                )
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Source Folder
 
     private var sourceFolderSection: some View {
+
         HStack {
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(
+                alignment: .leading,
+                spacing: 4
+            ) {
 
                 Text("Source folder")
                     .font(.headline)
@@ -128,9 +395,13 @@ struct ContentView: View {
                     sourceFolderURL?.path
                     ?? "No source folder selected"
                 )
-                .foregroundStyle(.secondary)
+                .foregroundStyle(
+                    .secondary
+                )
                 .lineLimit(1)
-                .truncationMode(.middle)
+                .truncationMode(
+                    .middle
+                )
             }
 
             Spacer()
@@ -144,9 +415,13 @@ struct ContentView: View {
     // MARK: - Archive Folder
 
     private var archiveFolderSection: some View {
+
         HStack {
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(
+                alignment: .leading,
+                spacing: 4
+            ) {
 
                 Text("Archive folder")
                     .font(.headline)
@@ -155,9 +430,13 @@ struct ContentView: View {
                     archiveFolderURL?.path
                     ?? "No archive folder selected"
                 )
-                .foregroundStyle(.secondary)
+                .foregroundStyle(
+                    .secondary
+                )
                 .lineLimit(1)
-                .truncationMode(.middle)
+                .truncationMode(
+                    .middle
+                )
             }
 
             Spacer()
@@ -171,158 +450,260 @@ struct ContentView: View {
     // MARK: - File Selection
 
     private var fileSelectionSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
 
-            Text("Select file for import")
-                .font(.headline)
+        VStack(
+            alignment: .leading,
+            spacing: 8
+        ) {
+
+            Text(
+                "Select file for import"
+            )
+            .font(.headline)
 
             List(
                 sourceFiles,
                 id: \.self,
-                selection: $selectedFile
+                selection:
+                    $selectedFile
             ) { file in
 
-                Text(file.lastPathComponent)
-                    .tag(file)
+                Text(
+                    file.lastPathComponent
+                )
+                .tag(file)
             }
-            .frame(minHeight: 180)
-            .disabled(sourceFolderURL == nil)
+            .frame(
+                minHeight: 180
+            )
+            .disabled(
+                sourceFolderURL == nil
+            )
 
             if sourceFiles.isEmpty,
                sourceFolderURL != nil {
 
-                Text("No files found in source folder.")
-                    .foregroundStyle(.secondary)
+                Text(
+                    "No files found in source folder."
+                )
+                .foregroundStyle(
+                    .secondary
+                )
             }
         }
     }
 
     // MARK: - Status
 
-    @ViewBuilder
     private var statusSection: some View {
 
-        if let lastProcessedFileName {
+        VStack(
+            alignment: .leading,
+            spacing: 4
+        ) {
 
-            Text(
-                "Last processed file: \(lastProcessedFileName)"
-            )
-            .foregroundStyle(.secondary)
-        }
+            if let lastProcessedFileName {
 
-        if let lastReport = appState.lastReport {
-            Text(
-                "Last result: \(lastReport.total) watchers, " +
-                "\(lastReport.added.count) added, " +
-                "\(lastReport.removed.count) removed."
-            )
-            .foregroundStyle(.secondary)
-        }
+                Text(
+                    "Last processed file: \(lastProcessedFileName)"
+                )
+                .foregroundStyle(
+                    .secondary
+                )
+            }
 
-        if let errorMessage {
+            if let lastReport =
+                appState.lastReport {
 
-            Text(errorMessage)
-                .foregroundStyle(.red)
+                Text(
+                    "Last result: \(lastReport.total) watchers, "
+                    + "\(lastReport.added.count) added, "
+                    + "\(lastReport.removed.count) removed."
+                )
+                .foregroundStyle(
+                    .secondary
+                )
+            }
+
+            if let errorMessage {
+
+                Text(errorMessage)
+                    .foregroundStyle(
+                        .red
+                    )
+            }
         }
     }
 
-    // MARK: - Bottom Bar
+    // MARK: - DeviantArt Actions
 
-    private func openDeviantArtProfile() {
-        guard let url = watchersURL else {
-            return
-        }
+    private var deviantArtActions: some View {
 
-        NSWorkspace.shared.open(url)
-    }
+        VStack(
+            spacing: 8
+        ) {
 
-    private var bottomBar: some View {
-        HStack {
+            HStack {
 
-            Button {
-                openDeviantArtProfile()
-            } label: {
-                HStack(spacing: 6) {
-                    Image("DeviantArtLogo")
+                Button {
+
+                    openDeviantArtProfile()
+
+                } label: {
+
+                    HStack(
+                        spacing: 6
+                    ) {
+
+                        Image(
+                            "DeviantArtLogo"
+                        )
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 16, height: 16)
+                        .frame(
+                            width: 16,
+                            height: 16
+                        )
 
-                    Text("Go to DA profile")
+                        Text(
+                            "DA Profile"
+                        )
+                    }
                 }
-            }
-            .disabled(deviantArtUsername.isEmpty)
+                .disabled(
+                    deviantArtUsername
+                        .isEmpty
+                )
 
-            Spacer()
+                Button(
+                    "Latest Report"
+                ) {
+                    openWindow(
+                        id: "report"
+                    )
+                }
+                .disabled(
+                    appState
+                        .lastReport == nil
+                )
 
-            Button("Latest report") {
-                openWindow(id: "report")
-            }
-            .disabled(appState.lastReport == nil)
+                Button(
+                    "Current Watchers"
+                ) {
+                    openWindow(
+                        id: "watchers"
+                    )
+                }
+                .disabled(
+                    appState
+                        .currentSnapshot == nil
+                )
 
-            Button("Current watchers") {
-                openWindow(id: "watchers")
+                Spacer()
             }
-            .disabled(appState.currentSnapshot == nil)
-            
-            Button {
-                openWindow(id: "favourites")
-            } label: {
-                Label(
-                    "Favourites",
-                    systemImage: "star.fill"
+
+            HStack {
+
+                Button {
+
+                    openWindow(
+                        id: "favourites"
+                    )
+
+                } label: {
+
+                    Label(
+                        "Favourites",
+                        systemImage:
+                            "star.fill"
+                    )
+                }
+
+                Button {
+
+                    openWindow(
+                        id:
+                            "report-history"
+                    )
+
+                } label: {
+
+                    Label(
+                        "History",
+                        systemImage:
+                            "calendar"
+                    )
+                }
+
+                Spacer()
+
+                Button(
+                    "Process"
+                ) {
+                    processSelectedFile()
+                }
+                .buttonStyle(
+                    .borderedProminent
+                )
+                .keyboardShortcut(
+                    .defaultAction
+                )
+                .disabled(
+                    !canProcess
                 )
             }
-            
-            Button {
-                openWindow(id: "report-history")
-            } label: {
-                Label(
-                    "Report History",
-                    systemImage: "calendar"
-                )
-            }
-            
-            Button {
-                openWindow(id: "apple-image-playground")
-            } label: {
-                Label(
-                    "Apple AI",
-                    systemImage: "sparkles"
-                )
-            }
-                        
-            Button("Process") {
-                processSelectedFile()
-            }
-            .keyboardShortcut(.defaultAction)
-            .disabled(!canProcess)
         }
     }
 
     // MARK: - Processing State
 
     private var canProcess: Bool {
-        sourceFolderURL != nil &&
-        archiveFolderURL != nil &&
-        selectedFile != nil
+
+        sourceFolderURL != nil
+        && archiveFolderURL != nil
+        && selectedFile != nil
+    }
+
+    // MARK: - DeviantArt Profile
+
+    private func openDeviantArtProfile() {
+
+        guard let url =
+            watchersURL
+        else {
+            return
+        }
+
+        NSWorkspace.shared.open(
+            url
+        )
     }
 
     // MARK: - Source Folder Selection
 
     private func chooseSourceFolder() {
 
-        let panel = NSOpenPanel()
+        let panel =
+            NSOpenPanel()
 
-        panel.title = "Choose Source Folder"
-        panel.prompt = "Select"
+        panel.title =
+            "Choose Source Folder"
 
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
+        panel.prompt =
+            "Select"
+
+        panel.canChooseFiles =
+            false
+
+        panel.canChooseDirectories =
+            true
+
+        panel.allowsMultipleSelection =
+            false
 
         if let sourceFolderURL {
-            panel.directoryURL = sourceFolderURL
+            panel.directoryURL =
+                sourceFolderURL
         }
 
         guard
@@ -333,16 +714,26 @@ struct ContentView: View {
         }
 
         do {
-            try bookmarkStore.saveSourceFolder(url)
 
-            sourceFolderURL = url
-            errorMessage = nil
+            try bookmarkStore
+                .saveSourceFolder(
+                    url
+                )
+
+            sourceFolderURL =
+                url
+
+            errorMessage =
+                nil
 
             refreshSourceFiles()
+
             startFolderWatcher()
 
         } catch {
-            errorMessage = "Choosing source folder error: \(error.localizedDescription)"
+
+            errorMessage =
+                "Choosing source folder error: \(error.localizedDescription)"
         }
     }
 
@@ -350,17 +741,28 @@ struct ContentView: View {
 
     private func chooseArchiveFolder() {
 
-        let panel = NSOpenPanel()
+        let panel =
+            NSOpenPanel()
 
-        panel.title = "Choose Archive Folder"
-        panel.prompt = "Select"
+        panel.title =
+            "Choose Archive Folder"
 
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
+        panel.prompt =
+            "Select"
+
+        panel.canChooseFiles =
+            false
+
+        panel.canChooseDirectories =
+            true
+
+        panel.allowsMultipleSelection =
+            false
 
         if let archiveFolderURL {
-            panel.directoryURL = archiveFolderURL
+
+            panel.directoryURL =
+                archiveFolderURL
         }
 
         guard
@@ -371,13 +773,22 @@ struct ContentView: View {
         }
 
         do {
-            try bookmarkStore.saveArchiveFolder(url)
 
-            archiveFolderURL = url
-            errorMessage = nil
+            try bookmarkStore
+                .saveArchiveFolder(
+                    url
+                )
+
+            archiveFolderURL =
+                url
+
+            errorMessage =
+                nil
 
         } catch {
-            errorMessage = "Choosing archive folder error: \(error.localizedDescription)"
+
+            errorMessage =
+                "Choosing archive folder error: \(error.localizedDescription)"
         }
     }
 
@@ -385,63 +796,95 @@ struct ContentView: View {
 
     private func refreshSourceFiles() {
 
-        guard let sourceFolderURL else {
+        guard let sourceFolderURL
+        else {
+
             sourceFiles = []
             selectedFile = nil
             return
         }
 
         let accessGranted =
-            sourceFolderURL.startAccessingSecurityScopedResource()
+            sourceFolderURL
+                .startAccessingSecurityScopedResource()
 
         defer {
+
             if accessGranted {
-                sourceFolderURL.stopAccessingSecurityScopedResource()
+
+                sourceFolderURL
+                    .stopAccessingSecurityScopedResource()
             }
         }
 
         do {
 
-            let files = try FileManager.default.contentsOfDirectory(
-                at: sourceFolderURL,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-            )
+            let files =
+                try FileManager.default
+                    .contentsOfDirectory(
+                        at:
+                            sourceFolderURL,
+                        includingPropertiesForKeys:
+                            nil,
+                        options:
+                            [
+                                .skipsHiddenFiles
+                            ]
+                    )
 
-            sourceFiles = files
-                .filter {
-                    !$0.hasDirectoryPath &&
-                    $0.pathExtension.lowercased() == "txt"
-                }
-                .sorted {
-                    $0.lastPathComponent
-                        .localizedCaseInsensitiveCompare(
-                            $1.lastPathComponent
-                        ) == .orderedAscending
-                }
+            sourceFiles =
+                files
+                    .filter {
+
+                        !$0.hasDirectoryPath
+                        && $0.pathExtension
+                            .lowercased()
+                        == "txt"
+                    }
+                    .sorted {
+
+                        $0.lastPathComponent
+                            .localizedCaseInsensitiveCompare(
+                                $1.lastPathComponent
+                            )
+                        == .orderedAscending
+                    }
 
             restorePreviousSelection()
 
-            errorMessage = nil
+            errorMessage =
+                nil
 
         } catch {
-            
+
             sourceFiles = []
-            selectedFile = nil
-            errorMessage = "Refreshing source files error: \(error.localizedDescription)"
+
+            selectedFile =
+                nil
+
+            errorMessage =
+                "Refreshing source files error: \(error.localizedDescription)"
         }
     }
 
     private func restorePreviousSelection() {
 
-        guard let lastProcessedFileName else {
-            selectedFile = nil
+        guard
+            let lastProcessedFileName
+        else {
+
+            selectedFile =
+                nil
+
             return
         }
 
-        selectedFile = sourceFiles.first {
-            $0.lastPathComponent == lastProcessedFileName
-        }
+        selectedFile =
+            sourceFiles.first {
+
+                $0.lastPathComponent
+                == lastProcessedFileName
+            }
     }
 
     // MARK: - Process
@@ -457,163 +900,254 @@ struct ContentView: View {
 
         do {
 
-            let report = try service.process(
-                sourceURL: selectedFile,
-                archiveFolderURL: archiveFolderURL
-            )
+            let report =
+                try service.process(
+                    sourceURL:
+                        selectedFile,
+                    archiveFolderURL:
+                        archiveFolderURL
+                )
 
             let processedFileName =
-                selectedFile.lastPathComponent
+                selectedFile
+                    .lastPathComponent
 
             lastProcessedFileName =
                 processedFileName
 
-            bookmarkStore.saveLastProcessedFileName(
-                processedFileName
+            bookmarkStore
+                .saveLastProcessedFileName(
+                    processedFileName
+                )
+
+            appState.lastReport =
+                report
+
+            openWindow(
+                id: "report"
             )
 
-            appState.lastReport = report
-            openWindow(id: "report")
-            errorMessage = nil
+            errorMessage =
+                nil
 
             loadCurrentSnapshot()
-            
+
             refreshSourceFiles()
 
         } catch {
-            errorMessage = "Processing selected file error: \(error.localizedDescription)"
+
+            errorMessage =
+                "Processing selected file error: \(error.localizedDescription)"
         }
     }
 
     // MARK: - Restore
 
     private func restoreState() {
+
         sourceFolderURL =
-            bookmarkStore.loadSourceFolder()
+            bookmarkStore
+                .loadSourceFolder()
 
         archiveFolderURL =
-            bookmarkStore.loadArchiveFolder()
+            bookmarkStore
+                .loadArchiveFolder()
 
         lastProcessedFileName =
-            bookmarkStore.loadLastProcessedFileName()
+            bookmarkStore
+                .loadLastProcessedFileName()
 
         refreshSourceFiles()
+
         startFolderWatcher()
 
         loadLatestReport()
+
         loadCurrentSnapshot()
+
         loadFavourites()
     }
-    
+
+    // MARK: - Latest Report
+
     private func loadLatestReport() {
-        guard let archiveFolderURL else {
+
+        guard
+            let archiveFolderURL
+        else {
             return
         }
 
         let accessGranted =
-            archiveFolderURL.startAccessingSecurityScopedResource()
+            archiveFolderURL
+                .startAccessingSecurityScopedResource()
 
         defer {
+
             if accessGranted {
-                archiveFolderURL.stopAccessingSecurityScopedResource()
+
+                archiveFolderURL
+                    .stopAccessingSecurityScopedResource()
             }
         }
 
         do {
-            guard let reportURL =
-                try archive.latestReportURL(
-                    in: archiveFolderURL
-                )
+
+            guard
+                let reportURL =
+                    try archive
+                        .latestReportURL(
+                            in:
+                                archiveFolderURL
+                        )
             else {
-                appState.lastReport = nil
+
+                appState.lastReport =
+                    nil
+
                 return
             }
 
             appState.lastReport =
-                try archive.loadReport(
-                    from: reportURL
-                )
+                try archive
+                    .loadReport(
+                        from:
+                            reportURL
+                    )
 
-            errorMessage = nil
+            errorMessage =
+                nil
 
         } catch {
-            errorMessage = "Load latest report error: \(error.localizedDescription)"
+
+            errorMessage =
+                "Load latest report error: \(error.localizedDescription)"
         }
     }
-    
+
+    // MARK: - Folder Watcher
+
     private func startFolderWatcher() {
-        guard let sourceFolderURL else {
+
+        guard
+            let sourceFolderURL
+        else {
+
             folderWatcher.stop()
             return
         }
 
         folderWatcher.start(
-            watching: sourceFolderURL
+            watching:
+                sourceFolderURL
         ) {
+
             refreshSourceFiles()
         }
     }
-    
+
+    // MARK: - Current Snapshot
+
     private func loadCurrentSnapshot() {
-        guard let archiveFolderURL else {
-            appState.currentSnapshot = nil
+
+        guard
+            let archiveFolderURL
+        else {
+
+            appState.currentSnapshot =
+                nil
+
             return
         }
 
         let accessGranted =
-            archiveFolderURL.startAccessingSecurityScopedResource()
+            archiveFolderURL
+                .startAccessingSecurityScopedResource()
 
         defer {
+
             if accessGranted {
-                archiveFolderURL.stopAccessingSecurityScopedResource()
+
+                archiveFolderURL
+                    .stopAccessingSecurityScopedResource()
             }
         }
 
         do {
-            guard let snapshotURL =
-                try archive.latestSnapshotURL(
-                    in: archiveFolderURL
-                )
+
+            guard
+                let snapshotURL =
+                    try archive
+                        .latestSnapshotURL(
+                            in:
+                                archiveFolderURL
+                        )
             else {
-                appState.currentSnapshot = nil
+
+                appState.currentSnapshot =
+                    nil
+
                 return
             }
 
             appState.currentSnapshot =
-                try archive.loadSnapshot(
-                    from: snapshotURL
-                )
+                try archive
+                    .loadSnapshot(
+                        from:
+                            snapshotURL
+                    )
 
-            errorMessage = nil
+            errorMessage =
+                nil
 
         } catch {
-            errorMessage = "Load current snapshot error: \(error.localizedDescription)"
+
+            errorMessage =
+                "Load current snapshot error: \(error.localizedDescription)"
         }
     }
-    
+
+    // MARK: - Favourites
+
     private func loadFavourites() {
-        guard let archiveFolderURL else {
-            appState.favourites = []
+
+        guard
+            let archiveFolderURL
+        else {
+
+            appState.favourites =
+                []
+
             return
         }
 
         let accessGranted =
-            archiveFolderURL.startAccessingSecurityScopedResource()
+            archiveFolderURL
+                .startAccessingSecurityScopedResource()
 
         defer {
+
             if accessGranted {
-                archiveFolderURL.stopAccessingSecurityScopedResource()
+
+                archiveFolderURL
+                    .stopAccessingSecurityScopedResource()
             }
         }
 
         do {
-            appState.favourites = try favouritesStore.load(
-                from: archiveFolderURL
-            )
 
-            errorMessage = nil
+            appState.favourites =
+                try favouritesStore
+                    .load(
+                        from:
+                            archiveFolderURL
+                    )
+
+            errorMessage =
+                nil
 
         } catch {
+
             errorMessage =
                 "Loading favourites error: \(error.localizedDescription)"
         }

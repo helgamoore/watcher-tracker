@@ -108,12 +108,55 @@ struct WatcherTrackerApp: App {
         }
         
         Window(
-            "Apple Image Playground",
+            "Local AI",
+            id: "local-image-generator"
+        ) {
+            LocalImageGeneratorView()
+        }
+
+        Window(
+            "Apple Image Generator",
             id: "apple-image-playground"
         ) {
-            ImagePlaygroundGeneratorView()
+            AppleImageGeneratorView()
         }
-                
+
+        Window(
+            "Gemini",
+            id: "gemini-image-generator"
+        ) {
+            GeminiImageGeneratorView()
+        }
+
+        Window(
+            "ChatGPT",
+            id: "chatgpt-image-generator"
+        ) {
+            ChatGPTImageGeneratorView()
+        }
+             
+        WindowGroup(
+            "Image Preview",
+            for: URL.self
+        ) { $imageURL in
+
+            if let imageURL {
+
+                GeneratedImagePreviewView(
+                    imageURL:
+                        imageURL
+                )
+
+            } else {
+
+                ContentUnavailableView(
+                    "No Image",
+                    systemImage:
+                        "photo"
+                )
+            }
+        }
+        
         Settings {
             SettingsView()
         }
