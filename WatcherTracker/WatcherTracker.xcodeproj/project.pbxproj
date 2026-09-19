@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		A819668D30566CDF000DF283 /* WatcherTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WatcherTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A819668D30566CDF000DF283 /* Watcher Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Watcher Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -40,7 +40,7 @@
 		A819668E30566CDF000DF283 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A819668D30566CDF000DF283 /* WatcherTracker.app */,
+				A819668D30566CDF000DF283 /* Watcher Tracker.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A819668C30566CDF000DF283 /* WatcherTracker */ = {
+		A819668C30566CDF000DF283 /* Watcher Tracker */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A819669830566CE0000DF283 /* Build configuration list for PBXNativeTarget "WatcherTracker" */;
+			buildConfigurationList = A819669830566CE0000DF283 /* Build configuration list for PBXNativeTarget "Watcher Tracker" */;
 			buildPhases = (
 				A819668930566CDF000DF283 /* Sources */,
 				A819668A30566CDF000DF283 /* Frameworks */,
@@ -63,11 +63,11 @@
 			fileSystemSynchronizedGroups = (
 				A819668F30566CDF000DF283 /* WatcherTracker */,
 			);
-			name = WatcherTracker;
+			name = "Watcher Tracker";
 			packageProductDependencies = (
 			);
 			productName = WatcherTracker;
-			productReference = A819668D30566CDF000DF283 /* WatcherTracker.app */;
+			productReference = A819668D30566CDF000DF283 /* Watcher Tracker.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A819668C30566CDF000DF283 /* WatcherTracker */,
+				A819668C30566CDF000DF283 /* Watcher Tracker */,
 			);
 		};
 /* End PBXProject section */
@@ -345,7 +345,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A819669830566CE0000DF283 /* Build configuration list for PBXNativeTarget "WatcherTracker" */ = {
+		A819669830566CE0000DF283 /* Build configuration list for PBXNativeTarget "Watcher Tracker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A819669930566CE0000DF283 /* Debug */,
