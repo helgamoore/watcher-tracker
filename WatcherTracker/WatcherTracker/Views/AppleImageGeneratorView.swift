@@ -169,6 +169,12 @@ struct AppleImageGeneratorView: View {
                         $selectedStyle
                 ) {
 
+                    Text("Any")
+                        .tag(
+                            ImagePlaygroundStyle
+                                .any
+                        )
+                    
                     Text("Illustration")
                         .tag(
                             ImagePlaygroundStyle
@@ -186,7 +192,13 @@ struct AppleImageGeneratorView: View {
                             ImagePlaygroundStyle
                                 .sketch
                         )
-
+                    
+                    Text("Emoji")
+                        .tag(
+                            ImagePlaygroundStyle
+                                .emoji
+                        )
+                
                     Text(
                         "External Provider"
                     )
@@ -310,7 +322,7 @@ struct AppleImageGeneratorView: View {
         if let generatedImageURL {
 
             Button {
-
+                
                 openWindow(
                     value:
                         generatedImageURL
