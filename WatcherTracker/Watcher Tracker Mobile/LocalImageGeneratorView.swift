@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct LocalImageGeneratorView: View {
 
@@ -30,7 +31,16 @@ struct LocalImageGeneratorView: View {
         LocalAIServerInfo?
 
     @State
-    private var imageURL: URL?
+    private var generatedImage:
+        GeneratedLocalImage?
+
+    @State
+    private var showingFullScreenPreview =
+        false
+
+    @State
+    private var exportPackage:
+        ExportPackage?
 
     @State
     private var isGenerating = false
@@ -87,9 +97,36 @@ struct LocalImageGeneratorView: View {
         .task {
             await monitorServer()
         }
+        .fullScreenCover(
+            isPresented:
+                $showingFullScreenPreview
+        ) {
+
+            if let generatedImage {
+
+                FullScreenImageView(
+                    imageURL:
+                        generatedImage
+                            .imageURL,
+                    onSave: {
+                        saveGeneratedImage()
+                    }
+                )
+            }
+        }
+        .sheet(
+            item:
+                $exportPackage
+        ) { package in
+
+            DocumentExporter(
+                urls:
+                    package.urls
+            )
+        }
     }
 
-    // MARK: Controls
+    // MARK: - Controls
 
     private var controls: some View {
 
@@ -219,44 +256,100 @@ struct LocalImageGeneratorView: View {
         )
     }
 
-    // MARK: Preview
+    // MARK: - Preview
 
     private var preview: some View {
 
-        Group {
+        VStack(spacing: 16) {
 
-            if let imageURL {
+            if let generatedImage {
 
-                AsyncImage(
-                    url: imageURL
-                ) { phase in
+                Button {
 
-                    switch phase {
+                    showingFullScreenPreview =
+                        true
 
-                    case .empty:
+                } label: {
 
-                        ProgressView()
+                    AsyncImage(
+                        url:
+                            generatedImage
+                                .imageURL
+                    ) { phase in
 
-                    case .success(
-                        let image
-                    ):
+                        switch phase {
 
-                        image
-                            .resizable()
-                            .scaledToFit()
+                        case .empty:
 
-                    case .failure:
+                            ProgressView()
+                                .frame(
+                                    maxWidth:
+                                        .infinity,
+                                    maxHeight:
+                                        .infinity
+                                )
 
-                        ContentUnavailableView(
-                            "Unable to Load Image",
-                            systemImage:
-                                "photo.badge.exclamationmark"
-                        )
+                        case .success(
+                            let image
+                        ):
 
-                    @unknown default:
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .frame(
+                                    maxWidth:
+                                        .infinity,
+                                    maxHeight:
+                                        .infinity
+                                )
 
-                        EmptyView()
+                        case .failure:
+
+                            ContentUnavailableView(
+                                "Unable to Load Image",
+                                systemImage:
+                                    "photo.badge.exclamationmark"
+                            )
+
+                        @unknown default:
+
+                            EmptyView()
+                        }
                     }
+                }
+                .buttonStyle(.plain)
+                .frame(
+                    maxWidth: .infinity,
+                    maxHeight: .infinity
+                )
+
+                HStack {
+
+                    Text(
+                        "Tap the image for full-screen preview."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(
+                        .secondary
+                    )
+
+                    Spacer()
+
+                    Button {
+
+                        saveGeneratedImage()
+
+                    } label: {
+
+                        Label(
+                            "Save to Files",
+                            systemImage:
+                                "folder"
+                        )
+                    }
+                    .buttonStyle(
+                        .borderedProminent
+                    )
                 }
 
             } else {
@@ -269,6 +362,12 @@ struct LocalImageGeneratorView: View {
                             "Enter a prompt and generate an image."
                         )
                 )
+                .frame(
+                    maxWidth:
+                        .infinity,
+                    maxHeight:
+                        .infinity
+                )
             }
         }
         .frame(
@@ -278,7 +377,7 @@ struct LocalImageGeneratorView: View {
         .padding(24)
     }
 
-    // MARK: Server
+    // MARK: - Server
 
     private var serverStatus: some View {
 
@@ -315,7 +414,7 @@ struct LocalImageGeneratorView: View {
         .font(.subheadline)
     }
 
-    // MARK: Progress
+    // MARK: - Progress
 
     private var generationProgress:
         some View
@@ -352,14 +451,40 @@ struct LocalImageGeneratorView: View {
                     .secondary
                 )
 
+                if
+                    let currentStep =
+                        serverInfo?
+                            .currentStep,
+                    let totalSteps =
+                        serverInfo?
+                            .totalSteps
+                {
+
+                    Text(
+                        "Step \(currentStep) of \(totalSteps)"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(
+                        .secondary
+                    )
+                }
+
             } else {
 
                 ProgressView()
+
+                Text(
+                    "Starting generation…"
+                )
+                .font(.caption)
+                .foregroundStyle(
+                    .secondary
+                )
             }
         }
     }
 
-    // MARK: Generate
+    // MARK: - Generate
 
     private func generate() {
 
@@ -376,6 +501,20 @@ struct LocalImageGeneratorView: View {
                         .whitespacesAndNewlines
                 )
 
+        let requestedSteps =
+            steps
+
+        let requestedGuidance =
+            guidanceScale
+
+        let requestedSeed =
+            parsedSeed
+
+        let modelName =
+            serverInfo?
+                .models.first
+            ?? "juggernaut-xl-v9"
+
         let request =
             LocalAIGenerationRequest(
                 prompt:
@@ -384,20 +523,26 @@ struct LocalImageGeneratorView: View {
                     cleanNegativePrompt,
                 width: 1024,
                 height: 1024,
-                steps: steps,
+                steps:
+                    requestedSteps,
                 guidanceScale:
-                    guidanceScale,
+                    requestedGuidance,
                 seed:
-                    parsedSeed
+                    requestedSeed
             )
 
-        isGenerating = true
-        errorMessage = nil
+        isGenerating =
+            true
+
+        errorMessage =
+            nil
 
         Task {
 
             defer {
-                isGenerating = false
+
+                isGenerating =
+                    false
             }
 
             do {
@@ -408,13 +553,48 @@ struct LocalImageGeneratorView: View {
                             request
                         )
 
-                imageURL =
-                    client.imageURL(
-                        for: response
+                guard
+                    let imageURL =
+                        client.imageURL(
+                            for:
+                                response
+                        )
+                else {
+
+                    throw LocalImageGeneratorError
+                        .invalidImageURL
+                }
+
+                generatedImage =
+                    GeneratedLocalImage(
+                        imageURL:
+                            imageURL,
+                        prompt:
+                            cleanPrompt,
+                        negativePrompt:
+                            cleanNegativePrompt,
+                        width:
+                            response.width,
+                        height:
+                            response.height,
+                        steps:
+                            requestedSteps,
+                        guidanceScale:
+                            requestedGuidance,
+                        seed:
+                            response.seed,
+                        generationSeconds:
+                            response
+                                .generationSeconds,
+                        model:
+                            modelName
                     )
 
                 seedText =
                     "\(response.seed)"
+
+                errorMessage =
+                    nil
 
             } catch {
 
@@ -424,19 +604,21 @@ struct LocalImageGeneratorView: View {
         }
     }
 
-    // MARK: Helpers
+    // MARK: - Seed
 
     private var parsedSeed:
         UInt64?
     {
 
         let value =
-            seedText.trimmingCharacters(
-                in:
-                    .whitespacesAndNewlines
-            )
+            seedText
+                .trimmingCharacters(
+                    in:
+                        .whitespacesAndNewlines
+                )
 
-        guard !value.isEmpty
+        guard
+            !value.isEmpty
         else {
             return nil
         }
@@ -444,11 +626,28 @@ struct LocalImageGeneratorView: View {
         return UInt64(value)
     }
 
+    private var seedIsValid:
+        Bool
+    {
+
+        let value =
+            seedText
+                .trimmingCharacters(
+                    in:
+                        .whitespacesAndNewlines
+                )
+
+        return
+            value.isEmpty ||
+            UInt64(value) != nil
+    }
+
     private var canGenerate: Bool {
 
         serverInfo != nil &&
         serverInfo?.busy != true &&
         !isGenerating &&
+        seedIsValid &&
         !prompt
             .trimmingCharacters(
                 in:
@@ -457,7 +656,7 @@ struct LocalImageGeneratorView: View {
             .isEmpty
     }
 
-    // MARK: Monitoring
+    // MARK: - Monitoring
 
     private func monitorServer() async {
 
@@ -471,7 +670,8 @@ struct LocalImageGeneratorView: View {
 
             } catch {
 
-                serverInfo = nil
+                serverInfo =
+                    nil
             }
 
             do {
@@ -485,6 +685,407 @@ struct LocalImageGeneratorView: View {
 
                 return
             }
+        }
+    }
+
+    // MARK: - Save
+
+    private func saveGeneratedImage() {
+
+        guard
+            let generatedImage
+        else {
+            return
+        }
+
+        Task {
+
+            do {
+
+                let package =
+                    try await
+                        createExportPackage(
+                            for:
+                                generatedImage
+                        )
+
+                exportPackage =
+                    package
+
+                errorMessage =
+                    nil
+
+            } catch {
+
+                errorMessage =
+                    "Export failed: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func createExportPackage(
+        for image:
+            GeneratedLocalImage
+    ) async throws -> ExportPackage {
+
+        let (
+            imageData,
+            response
+        ) =
+            try await
+                URLSession.shared
+                    .data(
+                        from:
+                            image.imageURL
+                    )
+
+        guard
+            let httpResponse =
+                response
+                    as? HTTPURLResponse,
+            200..<300 ~=
+                httpResponse
+                    .statusCode
+        else {
+
+            throw ExportError
+                .imageDownloadFailed
+        }
+
+        let imageFilename =
+            image.imageURL
+                .lastPathComponent
+                .isEmpty
+            ? "generated-image.png"
+            : image.imageURL
+                .lastPathComponent
+
+        let baseName =
+            URL(
+                fileURLWithPath:
+                    imageFilename
+            )
+            .deletingPathExtension()
+            .lastPathComponent
+
+        let temporaryFolder =
+            FileManager.default
+                .temporaryDirectory
+                .appendingPathComponent(
+                    UUID().uuidString,
+                    isDirectory: true
+                )
+
+        try FileManager.default
+            .createDirectory(
+                at:
+                    temporaryFolder,
+                withIntermediateDirectories:
+                    true
+            )
+
+        let imageDestination =
+            temporaryFolder
+                .appendingPathComponent(
+                    imageFilename
+                )
+
+        try imageData.write(
+            to:
+                imageDestination,
+            options:
+                .atomic
+        )
+
+        let markdownDestination =
+            temporaryFolder
+                .appendingPathComponent(
+                    baseName
+                )
+                .appendingPathExtension(
+                    "md"
+                )
+
+        let markdown =
+            markdownText(
+                for:
+                    image,
+                imageFilename:
+                    imageFilename
+            )
+
+        try markdown.write(
+            to:
+                markdownDestination,
+            atomically:
+                true,
+            encoding:
+                .utf8
+        )
+
+        return ExportPackage(
+            urls: [
+                imageDestination,
+                markdownDestination
+            ]
+        )
+    }
+
+    private func markdownText(
+        for image:
+            GeneratedLocalImage,
+        imageFilename:
+            String
+    ) -> String {
+
+        let linkFilename =
+            imageFilename
+                .addingPercentEncoding(
+                    withAllowedCharacters:
+                        .urlPathAllowed
+                )
+            ?? imageFilename
+
+        var result = """
+        # \(imageFilename)
+
+        ## Parameters
+
+        - Provider: Local AI
+        - Model: \(image.model)
+        - Size: \(image.width) × \(image.height)
+        - Steps: \(image.steps)
+        - Guidance: \(String(format: "%.1f", image.guidanceScale))
+        - Seed: \(image.seed)
+        - Generation Time: \(String(format: "%.1f", image.generationSeconds)) seconds
+        """
+
+        if
+            !image
+                .negativePrompt
+                .isEmpty
+        {
+
+            result +=
+                "\n- Negative Prompt: \(image.negativePrompt)"
+        }
+
+        result += """
+
+
+        ## Prompt
+
+        \(image.prompt)
+
+        ## Image
+
+        ![\(imageFilename)](\(linkFilename))
+
+        """
+
+        return result
+    }
+}
+
+// MARK: - Generated Image
+
+struct GeneratedLocalImage {
+
+    let imageURL: URL
+
+    let prompt: String
+    let negativePrompt: String
+
+    let width: Int
+    let height: Int
+
+    let steps: Int
+    let guidanceScale: Double
+
+    let seed: UInt64
+
+    let generationSeconds: Double
+
+    let model: String
+}
+
+// MARK: - Full Screen Preview
+
+struct FullScreenImageView: View {
+
+    let imageURL: URL
+
+    let onSave: () -> Void
+
+    @Environment(\.dismiss)
+    private var dismiss
+
+    var body: some View {
+
+        NavigationStack {
+
+            ZStack {
+
+                Color.black
+                    .ignoresSafeArea()
+
+                AsyncImage(
+                    url:
+                        imageURL
+                ) { phase in
+
+                    switch phase {
+
+                    case .empty:
+
+                        ProgressView()
+                            .tint(.white)
+
+                    case .success(
+                        let image
+                    ):
+
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .frame(
+                                maxWidth:
+                                    .infinity,
+                                maxHeight:
+                                    .infinity
+                            )
+
+                    case .failure:
+
+                        ContentUnavailableView(
+                            "Unable to Load Image",
+                            systemImage:
+                                "photo.badge.exclamationmark"
+                        )
+                        .foregroundStyle(
+                            .white
+                        )
+
+                    @unknown default:
+
+                        EmptyView()
+                    }
+                }
+            }
+            .toolbar {
+
+                ToolbarItem(
+                    placement:
+                        .topBarLeading
+                ) {
+
+                    Button(
+                        "Close"
+                    ) {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(
+                    placement:
+                        .topBarTrailing
+                ) {
+
+                    Button {
+
+                        onSave()
+
+                    } label: {
+
+                        Image(
+                            systemName:
+                                "square.and.arrow.down"
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Export Package
+
+struct ExportPackage:
+    Identifiable
+{
+
+    let id =
+        UUID()
+
+    let urls: [URL]
+}
+
+// MARK: - Document Picker
+
+struct DocumentExporter:
+    UIViewControllerRepresentable
+{
+
+    let urls: [URL]
+
+    func makeUIViewController(
+        context: Context
+    ) -> UIDocumentPickerViewController {
+
+        UIDocumentPickerViewController(
+            forExporting:
+                urls,
+            asCopy:
+                true
+        )
+    }
+
+    func updateUIViewController(
+        _ uiViewController:
+            UIDocumentPickerViewController,
+        context: Context
+    ) {
+    }
+}
+
+// MARK: - Errors
+
+private enum LocalImageGeneratorError:
+    LocalizedError
+{
+
+    case invalidImageURL
+
+    var errorDescription:
+        String?
+    {
+
+        switch self {
+
+        case .invalidImageURL:
+
+            return
+                "The server returned an invalid image URL."
+        }
+    }
+}
+
+private enum ExportError:
+    LocalizedError
+{
+
+    case imageDownloadFailed
+
+    var errorDescription:
+        String?
+    {
+
+        switch self {
+
+        case .imageDownloadFailed:
+
+            return
+                "Unable to download the generated image from the server."
         }
     }
 }
