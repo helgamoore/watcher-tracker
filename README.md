@@ -1,10 +1,10 @@
 # WatcherTracker
 
-WatcherTracker is a macOS utility for working with DeviantArt watcher data and AI-assisted image generation.
+WatcherTracker is a multi-platform project for working with DeviantArt watcher data and AI-assisted image generation.
 
-The project began as a small tool for cleaning and comparing manually copied DeviantArt watcher lists. It has since grown into a multi-part macOS project with watcher tracking, report history, favourites, multiple image-generation providers, and a local AI image-generation service.
+The project began as a small macOS tool for cleaning and comparing manually copied DeviantArt watcher lists. It has since grown into a multi-part project with watcher tracking, report history, favourites, multiple image-generation providers, a local AI image-generation service, and an iPadOS client.
 
-The project is also a practical learning project for Swift, SwiftUI, macOS development, Python, FastAPI, and local AI integration.
+The project is also a practical learning project for Swift, SwiftUI, macOS and iPadOS development, Python, FastAPI, local networking, and local AI integration.
 
 ## Features
 
@@ -112,7 +112,50 @@ The server currently provides:
 - Image deletion
 - Model unload support
 
-The local server is currently intended to run on the same Mac as WatcherTracker.
+The local server currently runs on the Mac mini and can be accessed by trusted client devices on the same private LAN, including Watcher Tracker Mobile on iPadOS.
+
+## Watcher Tracker Mobile
+
+Watcher Tracker Mobile is the first iPadOS client for the project.
+
+The initial version intentionally focuses on one feature: using the Local AI generator hosted on the Mac mini.
+
+Current iPadOS features:
+
+- Connect to the Local AI server over the private LAN
+- Show server availability and live generation progress
+- Enter a prompt and negative prompt
+- Configure steps, guidance, and seed
+- Generate 1024 × 1024 images using Juggernaut XL on the Mac mini
+- Preview generated images directly on the iPad
+- Open generated images in a full-screen preview
+- Save generated images through the Files picker
+- Export the generated image together with its Markdown metadata sidecar
+- Save directly to iCloud Drive through the system Files interface
+
+Current development server address:
+
+```text
+http://mini256.local:8765
+```
+
+The server currently listens on the local network and is intended for use on a private, trusted LAN. Authentication, authorization, and HTTPS are planned for a later server version.
+
+The mobile architecture is deliberately thin:
+
+```text
+Watcher Tracker Mobile (SwiftUI / iPadOS)
+                ↓ HTTP
+        Local AI Server
+                ↓
+      Diffusers / PyTorch
+                ↓
+         Juggernaut XL
+                ↓
+       Apple Metal / MPS
+```
+
+This architecture keeps the heavy AI workload on the Mac mini while the iPad acts as a native client for prompting, monitoring, previewing, and exporting results.
 
 ## AI Server Manager
 
@@ -190,14 +233,17 @@ Total Current Watchers: 1078
 
 WatcherTracker uses several languages and technologies:
 
-### macOS applications
+### Apple client applications
 
 - Swift
 - SwiftUI
-- AppKit
-- Image Playground
+- AppKit on macOS
+- UIKit interoperability on iPadOS
+- Image Playground on macOS
 - macOS App Sandbox
 - Security-scoped bookmarks
+- Local Network privacy support on iPadOS
+- Files / iCloud Drive export through the system document picker
 
 ### Local AI service
 
@@ -218,7 +264,7 @@ WatcherTracker uses several languages and technologies:
 
 - HTTP / JSON
 
-The project currently targets macOS on Apple Silicon.
+The project currently targets macOS on Apple Silicon and iPadOS.
 
 ## Project Structure
 
@@ -229,6 +275,9 @@ WatcherTracker
 ├── WatcherTracker macOS app
 │   ├── DeviantArt watcher tools
 │   └── Image generator clients
+│
+├── Watcher Tracker Mobile
+│   └── iPadOS Local AI client
 │
 ├── AI Server Manager
 │   └── macOS menu-bar utility
@@ -257,6 +306,10 @@ The project currently includes:
 - Markdown generation metadata
 - standalone local AI server
 - standalone server manager
+- functional iPadOS Local AI client
+- LAN-based generation from iPad to Mac mini
+- full-screen mobile image preview
+- image + Markdown export to Files / iCloud Drive
 
 ## Planned Features
 
@@ -271,8 +324,24 @@ Possible future development includes:
 - Gemini image-generation integration
 - OpenAI image-generation integration
 - More local AI models
-- iPadOS and iOS versions
+- Expand Watcher Tracker Mobile beyond Local AI generation
+- iPhone support
 - Shared data model across Apple platforms
+- Provider-neutral generation server for macOS, iPadOS, iOS, and future Linux/Windows clients
+- Authentication, authorization, and HTTPS for the generation server
+
+## Cross-Platform Direction
+
+The long-term direction is to move image-generation logic behind a shared server API so that native clients on different platforms can use the same generation service.
+
+Planned client direction includes:
+
+- macOS using SwiftUI
+- iPadOS and iOS using SwiftUI
+- a possible GNOME/Linux native client
+- a possible native Windows client
+
+The goal is to keep platform-specific user interfaces native while sharing the generation backend, provider integrations, job handling, model management, and metadata format through the server.
 
 ## Why This Project Exists
 
