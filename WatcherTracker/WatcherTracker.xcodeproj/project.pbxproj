@@ -8,12 +8,33 @@
 
 /* Begin PBXFileReference section */
 		A819668D30566CDF000DF283 /* Watcher Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Watcher Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A8BB4CD6305F5BFC002BE4FA /* Watcher Tracker Mobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Watcher Tracker Mobile.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A8BB4CE4305F5EDA002BE4FA /* Watcher-Tracker-Mobile-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Watcher-Tracker-Mobile-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A8BB4CE2305F5D78002BE4FA /* Exceptions for "WatcherTracker" folder in "Watcher Tracker Mobile" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				LocalAI/LocalAIClient.swift,
+				LocalAI/LocalAIModels.swift,
+			);
+			target = A8BB4CD5305F5BFC002BE4FA /* Watcher Tracker Mobile */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A819668F30566CDF000DF283 /* WatcherTracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A8BB4CE2305F5D78002BE4FA /* Exceptions for "WatcherTracker" folder in "Watcher Tracker Mobile" target */,
+			);
 			path = WatcherTracker;
+			sourceTree = "<group>";
+		};
+		A8BB4CD7305F5BFC002BE4FA /* Watcher Tracker Mobile */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Watcher Tracker Mobile";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -26,13 +47,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A8BB4CD3305F5BFC002BE4FA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		A819668430566CDF000DF283 = {
 			isa = PBXGroup;
 			children = (
+				A8BB4CE4305F5EDA002BE4FA /* Watcher-Tracker-Mobile-Info.plist */,
 				A819668F30566CDF000DF283 /* WatcherTracker */,
+				A8BB4CD7305F5BFC002BE4FA /* Watcher Tracker Mobile */,
 				A819668E30566CDF000DF283 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +71,7 @@
 			isa = PBXGroup;
 			children = (
 				A819668D30566CDF000DF283 /* Watcher Tracker.app */,
+				A8BB4CD6305F5BFC002BE4FA /* Watcher Tracker Mobile.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +101,28 @@
 			productReference = A819668D30566CDF000DF283 /* Watcher Tracker.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A8BB4CD5305F5BFC002BE4FA /* Watcher Tracker Mobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A8BB4CE0305F5BFC002BE4FA /* Build configuration list for PBXNativeTarget "Watcher Tracker Mobile" */;
+			buildPhases = (
+				A8BB4CD2305F5BFC002BE4FA /* Sources */,
+				A8BB4CD3305F5BFC002BE4FA /* Frameworks */,
+				A8BB4CD4305F5BFC002BE4FA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A8BB4CD7305F5BFC002BE4FA /* Watcher Tracker Mobile */,
+			);
+			name = "Watcher Tracker Mobile";
+			packageProductDependencies = (
+			);
+			productName = "Watcher Tracker Mobile";
+			productReference = A8BB4CD6305F5BFC002BE4FA /* Watcher Tracker Mobile.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -77,11 +130,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2660;
+				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					A819668C30566CDF000DF283 = {
 						CreatedOnToolsVersion = 26.6;
+					};
+					A8BB4CD5305F5BFC002BE4FA = {
+						CreatedOnToolsVersion = 27.0;
 					};
 				};
 			};
@@ -100,6 +156,7 @@
 			projectRoot = "";
 			targets = (
 				A819668C30566CDF000DF283 /* Watcher Tracker */,
+				A8BB4CD5305F5BFC002BE4FA /* Watcher Tracker Mobile */,
 			);
 		};
 /* End PBXProject section */
@@ -112,10 +169,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A8BB4CD4305F5BFC002BE4FA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A819668930566CDF000DF283 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A8BB4CD2305F5BFC002BE4FA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -333,6 +404,85 @@
 			};
 			name = Release;
 		};
+		A8BB4CDE305F5BFC002BE4FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = JSMR47XN6Z;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Watcher-Tracker-Mobile-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Watcher Tracker";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Watcher Tracker connects to your local AI image-generation server.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.musesofmagic.Watcher-Tracker-Mobile";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A8BB4CDF305F5BFC002BE4FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = JSMR47XN6Z;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Watcher-Tracker-Mobile-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Watcher Tracker";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Watcher Tracker connects to your local AI image-generation server.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.musesofmagic.Watcher-Tracker-Mobile";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -350,6 +500,15 @@
 			buildConfigurations = (
 				A819669930566CE0000DF283 /* Debug */,
 				A819669A30566CE0000DF283 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A8BB4CE0305F5BFC002BE4FA /* Build configuration list for PBXNativeTarget "Watcher Tracker Mobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A8BB4CDE305F5BFC002BE4FA /* Debug */,
+				A8BB4CDF305F5BFC002BE4FA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

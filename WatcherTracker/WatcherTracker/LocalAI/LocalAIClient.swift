@@ -14,7 +14,7 @@ struct LocalAIClient {
     init(
         baseURL: URL = URL(
             string:
-                "http://127.0.0.1:8765"
+                "http://mini256.local:8765"
         )!
     ) {
         self.baseURL = baseURL
