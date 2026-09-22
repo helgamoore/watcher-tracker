@@ -33,6 +33,15 @@ struct LocalImageGeneratorView: View {
     @State
     private var seedText = ""
 
+    @State
+    private var promptHistory: [String] = []
+
+    @State
+    private var promptHistoryIndex: Int?
+
+    @State
+    private var promptDraftBeforeHistory = ""
+    
     // MARK: - Server / Generation State
 
     @State
@@ -201,8 +210,45 @@ struct LocalImageGeneratorView: View {
             spacing: 6
         ) {
 
-            Text("Prompt")
-                .font(.headline)
+            HStack {
+
+                Text("Prompt")
+                    .font(.headline)
+
+                Spacer()
+
+                Button {
+                    previousPrompt()
+                } label: {
+                    Image(
+                        systemName:
+                            "chevron.up"
+                    )
+                }
+                .buttonStyle(.borderless)
+                .help(
+                    "Previous prompt"
+                )
+                .disabled(
+                    !canGoToPreviousPrompt
+                )
+
+                Button {
+                    nextPrompt()
+                } label: {
+                    Image(
+                        systemName:
+                            "chevron.down"
+                    )
+                }
+                .buttonStyle(.borderless)
+                .help(
+                    "Next prompt"
+                )
+                .disabled(
+                    !canGoToNextPrompt
+                )
+            }
 
             TextEditor(
                 text: $prompt
@@ -235,7 +281,6 @@ struct LocalImageGeneratorView: View {
             }
         }
     }
-
     // MARK: - Negative Prompt
 
     private var negativePromptSection:
@@ -643,6 +688,10 @@ struct LocalImageGeneratorView: View {
                 in:
                     .whitespacesAndNewlines
             )
+        
+        addPromptToHistory(
+            cleanPrompt
+        )
 
         let cleanNegativePrompt =
             negativePrompt
@@ -1000,6 +1049,140 @@ struct LocalImageGeneratorView: View {
                     error.localizedDescription
             }
         }
+    }
+    
+    // MARK: - Prompt History
+
+    private var canGoToPreviousPrompt:
+        Bool
+    {
+        guard
+            !promptHistory.isEmpty
+        else {
+            return false
+        }
+
+        if let promptHistoryIndex {
+            return promptHistoryIndex > 0
+        }
+
+        return true
+    }
+
+    private var canGoToNextPrompt:
+        Bool
+    {
+        promptHistoryIndex != nil
+    }
+
+    private func previousPrompt() {
+
+        guard
+            !promptHistory.isEmpty
+        else {
+            return
+        }
+
+        if let promptHistoryIndex {
+
+            guard
+                promptHistoryIndex > 0
+            else {
+                return
+            }
+
+            let newIndex =
+                promptHistoryIndex - 1
+
+            self.promptHistoryIndex =
+                newIndex
+
+            prompt =
+                promptHistory[
+                    newIndex
+                ]
+
+        } else {
+
+            promptDraftBeforeHistory =
+                prompt
+
+            let newIndex =
+                promptHistory.count - 1
+
+            promptHistoryIndex =
+                newIndex
+
+            prompt =
+                promptHistory[
+                    newIndex
+                ]
+        }
+    }
+
+    private func nextPrompt() {
+
+        guard
+            let promptHistoryIndex
+        else {
+            return
+        }
+
+        let newIndex =
+            promptHistoryIndex + 1
+
+        if newIndex <
+            promptHistory.count
+        {
+
+            self.promptHistoryIndex =
+                newIndex
+
+            prompt =
+                promptHistory[
+                    newIndex
+                ]
+
+        } else {
+
+            self.promptHistoryIndex =
+                nil
+
+            prompt =
+                promptDraftBeforeHistory
+        }
+    }
+
+    private func addPromptToHistory(
+        _ value: String
+    ) {
+
+        let cleanPrompt =
+            value.trimmingCharacters(
+                in:
+                    .whitespacesAndNewlines
+            )
+
+        guard
+            !cleanPrompt.isEmpty
+        else {
+            return
+        }
+
+        if
+            promptHistory.last !=
+                cleanPrompt
+        {
+            promptHistory.append(
+                cleanPrompt
+            )
+        }
+
+        promptHistoryIndex =
+            nil
+
+        promptDraftBeforeHistory =
+            ""
     }
 }
 
