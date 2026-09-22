@@ -5,7 +5,6 @@
 
 import SwiftUI
 import AppKit
-import UniformTypeIdentifiers
 
 struct LocalImageGeneratorView: View {
 
@@ -520,7 +519,7 @@ struct LocalImageGeneratorView: View {
                 Spacer()
 
                 Button(
-                    "Save Image…"
+                    "Export Image + Metadata…"
                 ) {
                     saveImage()
                 }
@@ -702,6 +701,7 @@ struct LocalImageGeneratorView: View {
         Task {
 
             defer {
+
                 isGenerating =
                     false
             }
@@ -806,9 +806,9 @@ struct LocalImageGeneratorView: View {
                             parameters
                     )
 
-                // Put the real seed back into
-                // the UI so it can easily be
-                // reproduced.
+                // Put the actual seed back into
+                // the UI so the generation can
+                // easily be reproduced.
 
                 seedText =
                     "\(response.seed)"
@@ -904,7 +904,7 @@ struct LocalImageGeneratorView: View {
         }
     }
 
-    // MARK: - Save
+    // MARK: - Export
 
     @MainActor
     private func saveImage() {
@@ -915,54 +915,70 @@ struct LocalImageGeneratorView: View {
             return
         }
 
-        let imageURL =
-            generatedImage.imageURL
-
         let panel =
-            NSSavePanel()
+            NSOpenPanel()
 
         panel.title =
-            "Save Generated Image"
+            "Choose Export Folder"
+
+        panel.message =
+            "The generated image and its Markdown metadata file will be saved in this folder."
 
         panel.prompt =
-            "Save"
+            "Export"
 
-        panel.nameFieldStringValue =
-            imageURL
-                .lastPathComponent
-                .isEmpty
-            ? "generated-image.png"
-            : imageURL
-                .lastPathComponent
+        panel.canChooseFiles =
+            false
 
-        if
-            let type = UTType(
-                filenameExtension:
-                    imageURL.pathExtension
-            )
-        {
-            panel.allowedContentTypes = [
-                type
-            ]
+        panel.canChooseDirectories =
+            true
 
-        } else {
+        panel.allowsMultipleSelection =
+            false
 
-            panel.allowedContentTypes = [
-                .png,
-                .jpeg,
-                .heic
-            ]
-        }
+        panel.canCreateDirectories =
+            true
 
         guard
             panel.runModal() == .OK,
-            let destinationURL =
+            let folderURL =
                 panel.url
         else {
             return
         }
 
+        let sourceImageURL =
+            generatedImage.imageURL
+
+        let imageFilename =
+            sourceImageURL
+                .lastPathComponent
+                .isEmpty
+            ? "generated-image.png"
+            : sourceImageURL
+                .lastPathComponent
+
+        let destinationURL =
+            folderURL
+                .appendingPathComponent(
+                    imageFilename,
+                    isDirectory: false
+                )
+
+        let accessGranted =
+            folderURL
+                .startAccessingSecurityScopedResource()
+
         Task {
+
+            defer {
+
+                if accessGranted {
+
+                    folderURL
+                        .stopAccessingSecurityScopedResource()
+                }
+            }
 
             do {
 
