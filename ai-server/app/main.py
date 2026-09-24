@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from threading import Lock
+from threading import Lock, Thread
 from urllib.parse import quote
+from uuid import UUID
+
+import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -11,13 +14,10 @@ from fastapi.staticfiles import StaticFiles
 from app.generator import JuggernautGenerator
 from app.models import GenerationRequest
 
-import os
-
-from pathlib import Path
 
 log_file = Path(os.environ["LOG_FILE"])
 
-SERVER_VERSION = "0.2.0"
+SERVER_VERSION = "0.3.0"
 OUTPUT_MAX_AGE = timedelta(days=1)
 
 output_folder = Path(
@@ -28,6 +28,7 @@ output_folder.mkdir(
     parents=True,
     exist_ok=True,
 )
+
 
 def generated_file_path(filename: str) -> Path:
     if Path(filename).name != filename:
@@ -43,6 +44,7 @@ def generated_file_path(filename: str) -> Path:
         )
 
     return output_folder / filename
+
 
 def cleanup_generated_files(folder: Path) -> int:
     cutoff = datetime.now(timezone.utc) - OUTPUT_MAX_AGE
@@ -87,12 +89,155 @@ app = FastAPI(
 generator = JuggernautGenerator()
 generation_lock = Lock()
 
+jobs_lock = Lock()
+jobs: dict[str, dict] = {}
+active_job_id: str | None = None
+
 
 app.mount(
     "/images",
     StaticFiles(directory=output_folder),
     name="images",
 )
+
+
+def generation_request_snapshot(
+    request: GenerationRequest,
+) -> dict:
+    return {
+        "prompt": request.prompt,
+        "negative_prompt": request.negative_prompt,
+        "width": request.width,
+        "height": request.height,
+        "steps": request.steps,
+        "guidance_scale": request.guidance_scale,
+        "seed": request.seed,
+    }
+
+
+def generation_result_response(
+    result: dict,
+) -> dict:
+    image_path = Path(
+        result["image_path"]
+    )
+
+    return {
+        "filename": result["filename"],
+        "image_url": f"/images/{quote(image_path.name)}",
+        "seed": result["seed"],
+        "generation_seconds": result["generation_seconds"],
+        "width": result["width"],
+        "height": result["height"],
+    }
+
+
+def job_response(job_id: str) -> dict:
+    with jobs_lock:
+        job = jobs.get(job_id)
+
+        if job is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Generation job not found.",
+            )
+
+        snapshot = dict(job)
+        is_active = (
+            active_job_id == job_id
+            and snapshot["status"] == "running"
+        )
+
+    progress_percent = snapshot.get(
+        "progress_percent"
+    )
+    current_step = snapshot.get(
+        "current_step"
+    )
+    total_steps = snapshot.get(
+        "total_steps"
+    )
+
+    if is_active:
+        progress_percent = generator.progress_percent
+        current_step = generator.current_step
+        total_steps = generator.total_steps
+
+    return {
+        "job_id": job_id,
+        "status": snapshot["status"],
+        "created_at": snapshot["created_at"].isoformat(),
+        "completed_at": (
+            snapshot["completed_at"].isoformat()
+            if snapshot.get("completed_at")
+            else None
+        ),
+        "request": snapshot["request"],
+        "progress_percent": progress_percent,
+        "current_step": current_step,
+        "total_steps": total_steps,
+        "result": snapshot.get("result"),
+        "error": snapshot.get("error"),
+    }
+
+
+def run_generation_job(
+    job_id: str,
+    request: GenerationRequest,
+) -> None:
+    global active_job_id
+
+    try:
+        result = generator.generate(
+            prompt=request.prompt,
+            negative_prompt=request.negative_prompt,
+            width=request.width,
+            height=request.height,
+            steps=request.steps,
+            guidance_scale=request.guidance_scale,
+            seed=request.seed,
+            output_folder=output_folder,
+        )
+
+        response = generation_result_response(
+            result
+        )
+
+        with jobs_lock:
+            job = jobs[job_id]
+
+            job["status"] = "completed"
+            job["completed_at"] = datetime.now(
+                timezone.utc
+            )
+            job["progress_percent"] = 100
+            job["current_step"] = request.steps
+            job["total_steps"] = request.steps
+            job["result"] = response
+            job["error"] = None
+
+    except Exception as error:
+        print(
+            f"Generation job {job_id} failed:",
+            error,
+        )
+
+        with jobs_lock:
+            job = jobs[job_id]
+
+            job["status"] = "failed"
+            job["completed_at"] = datetime.now(
+                timezone.utc
+            )
+            job["result"] = None
+            job["error"] = str(error)
+
+    finally:
+        with jobs_lock:
+            if active_job_id == job_id:
+                active_job_id = None
+
+        generation_lock.release()
 
 
 @app.get("/health")
@@ -164,6 +309,119 @@ def generated_files():
     }
 
 
+# MARK: - Resumable generation jobs
+
+
+@app.put(
+    "/jobs/{job_id}",
+    status_code=202,
+)
+def start_generation_job(
+    job_id: UUID,
+    request: GenerationRequest,
+):
+    global active_job_id
+
+    normalized_job_id = str(job_id)
+
+    # PUT is idempotent. If the client retries the same
+    # request after a temporary network failure, return
+    # the already-existing job instead of starting a
+    # duplicate generation.
+    with jobs_lock:
+        if normalized_job_id in jobs:
+            existing = jobs[
+                normalized_job_id
+            ]
+
+            return {
+                "job_id": normalized_job_id,
+                "status": existing["status"],
+            }
+
+    acquired = generation_lock.acquire(
+        blocking=False
+    )
+
+    if not acquired:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "detail":
+                    "Image generation is already in progress."
+            },
+            headers={
+                "Retry-After": "180"
+            },
+        )
+
+    try:
+        with jobs_lock:
+            jobs[normalized_job_id] = {
+                "status": "running",
+                "created_at": datetime.now(
+                    timezone.utc
+                ),
+                "completed_at": None,
+                "request":
+                    generation_request_snapshot(
+                        request
+                    ),
+                "progress_percent": 0,
+                "current_step": 0,
+                "total_steps": request.steps,
+                "result": None,
+                "error": None,
+            }
+
+            active_job_id = normalized_job_id
+
+        thread = Thread(
+            target=run_generation_job,
+            args=(
+                normalized_job_id,
+                request,
+            ),
+            daemon=True,
+            name=f"generation-{normalized_job_id}",
+        )
+
+        thread.start()
+
+    except Exception:
+        with jobs_lock:
+            jobs.pop(
+                normalized_job_id,
+                None,
+            )
+
+            if active_job_id == normalized_job_id:
+                active_job_id = None
+
+        generation_lock.release()
+        raise
+
+    return {
+        "job_id": normalized_job_id,
+        "status": "running",
+    }
+
+
+@app.get("/jobs/{job_id}")
+def get_generation_job(
+    job_id: UUID,
+):
+    return job_response(
+        str(job_id)
+    )
+
+
+# MARK: - Existing synchronous endpoint
+#
+# Kept for compatibility with older clients and manual
+# API testing. New clients should use /jobs.
+
+
 @app.post("/generate")
 def generate(
     request: GenerationRequest
@@ -196,18 +454,9 @@ def generate(
             output_folder=output_folder,
         )
 
-        image_path = Path(
-            result["image_path"]
+        return generation_result_response(
+            result
         )
-
-        return {
-            "filename": result["filename"],
-            "image_url": f"/images/{quote(image_path.name)}",
-            "seed": result["seed"],
-            "generation_seconds": result["generation_seconds"],
-            "width": result["width"],
-            "height": result["height"],
-        }
 
     finally:
         generation_lock.release()
@@ -228,8 +477,10 @@ def unload():
 
     return {
         "status": "ok",
-        "model_loaded": generator.is_loaded,
+        "model_loaded":
+            generator.is_loaded,
     }
+
 
 @app.delete("/generated-files/{filename}")
 def delete_generated_file(filename: str):
@@ -256,6 +507,7 @@ def delete_generated_file(filename: str):
         "status": "ok",
         "deleted": filename,
     }
+
 
 @app.delete("/generated-files")
 def delete_all_generated_files():
