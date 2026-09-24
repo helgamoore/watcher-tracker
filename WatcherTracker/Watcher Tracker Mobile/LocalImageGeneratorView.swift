@@ -1206,6 +1206,40 @@ struct FullScreenImageView: View {
     @Environment(\.dismiss)
     private var dismiss
 
+    // MARK: Zoom State
+
+    @State
+    private var baseScale: CGFloat =
+        1.0
+
+    @GestureState
+    private var gestureScale: CGFloat =
+        1.0
+
+    @State
+    private var baseOffset:
+        CGSize =
+        .zero
+
+    @GestureState
+    private var gestureOffset:
+        CGSize =
+        .zero
+
+    private let minimumScale:
+        CGFloat =
+        1.0
+
+    private let maximumScale:
+        CGFloat =
+        5.0
+
+    private let doubleTapScale:
+        CGFloat =
+        2.5
+
+    // MARK: - Body
+
     var body: some View {
 
         NavigationStack {
@@ -1231,15 +1265,9 @@ struct FullScreenImageView: View {
                         let image
                     ):
 
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .frame(
-                                maxWidth:
-                                    .infinity,
-                                maxHeight:
-                                    .infinity
-                            )
+                        zoomableImage(
+                            image
+                        )
 
                     case .failure:
 
@@ -1292,6 +1320,222 @@ struct FullScreenImageView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Zoomable Image
+
+    private func zoomableImage(
+        _ image: Image
+    ) -> some View {
+
+        let scale =
+            currentScale
+
+        let offset =
+            currentOffset
+
+        return image
+            .resizable()
+            .scaledToFit()
+            .frame(
+                maxWidth:
+                    .infinity,
+                maxHeight:
+                    .infinity
+            )
+            .scaleEffect(
+                scale
+            )
+            .offset(
+                offset
+            )
+            .contentShape(
+                Rectangle()
+            )
+            .gesture(
+                magnificationGesture
+            )
+            .simultaneousGesture(
+                dragGesture
+            )
+            .onTapGesture(
+                count: 2
+            ) {
+
+                toggleZoom()
+            }
+    }
+
+    // MARK: - Current Transform
+
+    private var currentScale:
+        CGFloat
+    {
+
+        min(
+            max(
+                baseScale *
+                    gestureScale,
+                minimumScale
+            ),
+            maximumScale
+        )
+    }
+
+    private var currentOffset:
+        CGSize
+    {
+
+        guard
+            currentScale >
+                minimumScale
+        else {
+            return .zero
+        }
+
+        return CGSize(
+            width:
+                baseOffset.width +
+                gestureOffset.width,
+            height:
+                baseOffset.height +
+                gestureOffset.height
+        )
+    }
+
+    // MARK: - Magnification Gesture
+
+    private var magnificationGesture:
+        some Gesture
+    {
+
+        MagnificationGesture()
+            .updating(
+                $gestureScale
+            ) {
+                value,
+                state,
+                _ in
+
+                state =
+                    value
+            }
+            .onEnded {
+                value in
+
+                let newScale =
+                    min(
+                        max(
+                            baseScale *
+                                value,
+                            minimumScale
+                        ),
+                        maximumScale
+                    )
+
+                baseScale =
+                    newScale
+
+                if
+                    newScale <=
+                    minimumScale
+                {
+
+                    resetPosition()
+                }
+            }
+    }
+
+    // MARK: - Drag Gesture
+
+    private var dragGesture:
+        some Gesture
+    {
+
+        DragGesture()
+            .updating(
+                $gestureOffset
+            ) {
+                value,
+                state,
+                _ in
+
+                guard
+                    currentScale >
+                        minimumScale
+                else {
+
+                    state =
+                        .zero
+
+                    return
+                }
+
+                state =
+                    value.translation
+            }
+            .onEnded {
+                value in
+
+                guard
+                    currentScale >
+                        minimumScale
+                else {
+
+                    resetPosition()
+
+                    return
+                }
+
+                baseOffset =
+                    CGSize(
+                        width:
+                            baseOffset.width +
+                            value.translation.width,
+                        height:
+                            baseOffset.height +
+                            value.translation.height
+                    )
+            }
+    }
+
+    // MARK: - Double Tap
+
+    private func toggleZoom() {
+
+        withAnimation(
+            .easeInOut(
+                duration: 0.2
+            )
+        ) {
+
+            if
+                baseScale >
+                    minimumScale
+            {
+
+                resetPosition()
+
+            } else {
+
+                baseScale =
+                    doubleTapScale
+
+                baseOffset =
+                    .zero
+            }
+        }
+    }
+
+    // MARK: - Reset
+
+    private func resetPosition() {
+
+        baseScale =
+            minimumScale
+
+        baseOffset =
+            .zero
     }
 }
 
