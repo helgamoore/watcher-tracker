@@ -10,6 +10,25 @@ import UIKit
 
 struct LocalImageGeneratorView: View {
 
+    @Environment(\.horizontalSizeClass)
+    private var horizontalSizeClass
+
+    // MARK: - Focus
+
+    private enum FocusedField:
+        Hashable
+    {
+        case prompt
+        case negativePrompt
+        case seed
+    }
+
+    @FocusState
+    private var focusedField:
+        FocusedField?
+
+    // MARK: - Generator Settings
+
     @State
     private var prompt = ""
 
@@ -25,6 +44,8 @@ struct LocalImageGeneratorView: View {
 
     @State
     private var seedText = ""
+
+    // MARK: - Server / Generation State
 
     @State
     private var serverInfo:
@@ -43,10 +64,12 @@ struct LocalImageGeneratorView: View {
         ExportPackage?
 
     @State
-    private var isGenerating = false
+    private var isGenerating =
+        false
 
     @State
-    private var errorMessage: String?
+    private var errorMessage:
+        String?
 
     private let client =
         LocalAIClient(
@@ -57,44 +80,59 @@ struct LocalImageGeneratorView: View {
                 )!
         )
 
+    // MARK: - Layout
+
+    private var isCompactLayout:
+        Bool
+    {
+        horizontalSizeClass ==
+            .compact
+    }
+
+    // MARK: - Body
+
     var body: some View {
 
         NavigationStack {
 
-            GeometryReader { geometry in
+            Group {
 
-                if geometry.size.width > 800 {
+                if isCompactLayout {
 
-                    HStack(spacing: 0) {
-
-                        controls
-
-                        Divider()
-
-                        preview
-                    }
+                    compactLayout
 
                 } else {
 
-                    ScrollView {
-
-                        VStack(spacing: 24) {
-
-                            controls
-
-                            preview
-                                .frame(
-                                    minHeight: 400
-                                )
-                        }
-                    }
+                    regularLayout
                 }
             }
             .navigationTitle(
                 "Local AI Generator"
             )
+            .navigationBarTitleDisplayMode(
+                isCompactLayout
+                ? .inline
+                : .automatic
+            )
+            .toolbar {
+
+                ToolbarItemGroup(
+                    placement:
+                        .keyboard
+                ) {
+
+                    Spacer()
+
+                    Button("Done") {
+
+                        focusedField =
+                            nil
+                    }
+                }
+            }
         }
         .task {
+
             await monitorServer()
         }
         .fullScreenCover(
@@ -109,6 +147,7 @@ struct LocalImageGeneratorView: View {
                         generatedImage
                             .imageURL,
                     onSave: {
+
                         saveGeneratedImage()
                     }
                 )
@@ -126,141 +165,379 @@ struct LocalImageGeneratorView: View {
         }
     }
 
-    // MARK: - Controls
+    // MARK: - Regular Layout
 
-    private var controls: some View {
+    private var regularLayout:
+        some View
+    {
+
+        HStack(spacing: 0) {
+
+            ScrollView {
+
+                generatorControls(
+                    compact: false
+                )
+                .padding(24)
+            }
+            .frame(
+                maxWidth: 480
+            )
+
+            Divider()
+
+            previewPane(
+                compact: false
+            )
+            .padding(24)
+        }
+    }
+
+    // MARK: - Compact Layout
+
+    private var compactLayout:
+        some View
+    {
 
         ScrollView {
 
             VStack(
                 alignment: .leading,
-                spacing: 18
+                spacing: 22
             ) {
 
-                serverStatus
-
-                Text("Prompt")
-                    .font(.headline)
-
-                TextEditor(
-                    text: $prompt
-                )
-                .frame(
-                    minHeight: 180
-                )
-                .padding(6)
-                .background(
-                    .quaternary,
-                    in:
-                        RoundedRectangle(
-                            cornerRadius: 10
-                        )
+                generatorControls(
+                    compact: true
                 )
 
-                Text("Negative Prompt")
-                    .font(.headline)
+                Divider()
 
-                TextEditor(
-                    text: $negativePrompt
-                )
-                .frame(
-                    minHeight: 90
-                )
-                .padding(6)
-                .background(
-                    .quaternary,
-                    in:
-                        RoundedRectangle(
-                            cornerRadius: 10
-                        )
-                )
-
-                Stepper(
-                    "Steps: \(steps)",
-                    value: $steps,
-                    in: 10...60
-                )
-
-                Stepper(
-                    String(
-                        format:
-                            "Guidance: %.1f",
-                        guidanceScale
-                    ),
-                    value:
-                        $guidanceScale,
-                    in: 1...12,
-                    step: 0.5
-                )
-
-                HStack {
-
-                    Text("Seed")
-
-                    Spacer()
-
-                    TextField(
-                        "Random",
-                        text: $seedText
-                    )
-                    .keyboardType(
-                        .numberPad
-                    )
-                    .multilineTextAlignment(
-                        .trailing
-                    )
-                    .frame(width: 150)
-                }
-
-                if
-                    isGenerating ||
-                    serverInfo?.busy == true
-                {
-                    generationProgress
-                }
-
-                if let errorMessage {
-
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
-                }
-
-                Button {
-
-                    generate()
-
-                } label: {
-
-                    Label(
-                        "Generate",
-                        systemImage:
-                            "sparkles"
-                    )
-                    .frame(
-                        maxWidth:
-                            .infinity
-                    )
-                }
-                .buttonStyle(
-                    .borderedProminent
-                )
-                .controlSize(.large)
-                .disabled(
-                    !canGenerate
+                previewPane(
+                    compact: true
                 )
             }
-            .padding(24)
+            .padding(16)
         }
-        .frame(
-            maxWidth: 480
+    }
+
+    // MARK: - Generator Controls
+
+    @ViewBuilder
+    private func generatorControls(
+        compact: Bool
+    ) -> some View {
+
+        VStack(
+            alignment: .leading,
+            spacing: compact
+                ? 16
+                : 18
+        ) {
+
+            serverStatus
+
+            promptSection(
+                compact: compact
+            )
+
+            negativePromptSection(
+                compact: compact
+            )
+
+            parametersSection
+
+            if
+                isGenerating ||
+                serverInfo?.busy == true
+            {
+                generationProgress
+            }
+
+            if let errorMessage {
+
+                Label(
+                    errorMessage,
+                    systemImage:
+                        "exclamationmark.triangle"
+                )
+                .foregroundStyle(.red)
+                .font(.callout)
+            }
+
+            generateButton
+        }
+    }
+
+    // MARK: - Server Status
+
+    private var serverStatus:
+        some View
+    {
+
+        HStack(spacing: 8) {
+
+            Circle()
+                .fill(
+                    serverInfo == nil
+                    ? .red
+                    : serverInfo?.busy == true
+                        ? .orange
+                        : .green
+                )
+                .frame(
+                    width: 10,
+                    height: 10
+                )
+
+            Text(
+                serverInfo == nil
+                ? "Server offline"
+                : serverInfo?.busy == true
+                    ? "Server busy"
+                    : "Server ready"
+            )
+
+            Spacer()
+
+            Text("mini256.local")
+                .foregroundStyle(
+                    .secondary
+                )
+                .lineLimit(1)
+                .minimumScaleFactor(
+                    0.8
+                )
+        }
+        .font(.subheadline)
+    }
+
+    // MARK: - Prompt
+
+    private func promptSection(
+        compact: Bool
+    ) -> some View {
+
+        VStack(
+            alignment: .leading,
+            spacing: 6
+        ) {
+
+            Text("Prompt")
+                .font(.headline)
+
+            TextEditor(
+                text: $prompt
+            )
+            .focused(
+                $focusedField,
+                equals: .prompt
+            )
+            .frame(
+                minHeight:
+                    compact
+                    ? 140
+                    : 180
+            )
+            .padding(6)
+            .background(
+                .quaternary,
+                in:
+                    RoundedRectangle(
+                        cornerRadius: 10
+                    )
+            )
+        }
+    }
+
+    // MARK: - Negative Prompt
+
+    private func negativePromptSection(
+        compact: Bool
+    ) -> some View {
+
+        VStack(
+            alignment: .leading,
+            spacing: 6
+        ) {
+
+            Text(
+                "Negative Prompt"
+            )
+            .font(.headline)
+
+            TextEditor(
+                text:
+                    $negativePrompt
+            )
+            .focused(
+                $focusedField,
+                equals:
+                    .negativePrompt
+            )
+            .frame(
+                minHeight:
+                    compact
+                    ? 80
+                    : 90
+            )
+            .padding(6)
+            .background(
+                .quaternary,
+                in:
+                    RoundedRectangle(
+                        cornerRadius: 10
+                    )
+            )
+        }
+    }
+
+    // MARK: - Parameters
+
+    private var parametersSection:
+        some View
+    {
+
+        VStack(
+            alignment: .leading,
+            spacing: 14
+        ) {
+
+            Text("Parameters")
+                .font(.headline)
+
+            Stepper(
+                "Steps: \(steps)",
+                value:
+                    $steps,
+                in:
+                    10...60
+            )
+
+            Stepper(
+                String(
+                    format:
+                        "Guidance: %.1f",
+                    guidanceScale
+                ),
+                value:
+                    $guidanceScale,
+                in:
+                    1...12,
+                step:
+                    0.5
+            )
+
+            HStack {
+
+                Text("Seed")
+
+                Spacer()
+
+                TextField(
+                    "Random",
+                    text:
+                        $seedText
+                )
+                .focused(
+                    $focusedField,
+                    equals:
+                        .seed
+                )
+                .keyboardType(
+                    .numberPad
+                )
+                .multilineTextAlignment(
+                    .trailing
+                )
+                .textFieldStyle(
+                    .roundedBorder
+                )
+                .frame(
+                    width: 140
+                )
+            }
+        }
+    }
+
+    // MARK: - Generate Button
+
+    private var generateButton:
+        some View
+    {
+
+        Button {
+
+            focusedField =
+                nil
+
+            generate()
+
+        } label: {
+
+            Label(
+                "Generate",
+                systemImage:
+                    "sparkles"
+            )
+            .frame(
+                maxWidth:
+                    .infinity
+            )
+        }
+        .buttonStyle(
+            .borderedProminent
+        )
+        .controlSize(.large)
+        .disabled(
+            !canGenerate
         )
     }
 
     // MARK: - Preview
 
-    private var preview: some View {
+    @ViewBuilder
+    private func previewPane(
+        compact: Bool
+    ) -> some View {
 
-        VStack(spacing: 16) {
+        VStack(
+            alignment: .leading,
+            spacing: 16
+        ) {
+
+            HStack {
+
+                Text("Preview")
+                    .font(
+                        compact
+                        ? .headline
+                        : .title2
+                    )
+                    .fontWeight(
+                        .semibold
+                    )
+
+                Spacer()
+
+                if
+                    !compact,
+                    generatedImage != nil
+                {
+
+                    Button {
+
+                        saveGeneratedImage()
+
+                    } label: {
+
+                        Label(
+                            "Save to Files",
+                            systemImage:
+                                "folder"
+                        )
+                    }
+                }
+            }
 
             if let generatedImage {
 
@@ -320,10 +597,17 @@ struct LocalImageGeneratorView: View {
                 .buttonStyle(.plain)
                 .frame(
                     maxWidth: .infinity,
-                    maxHeight: .infinity
+                    minHeight:
+                        compact
+                        ? 280
+                        : 400,
+                    maxHeight:
+                        compact
+                        ? 360
+                        : .infinity
                 )
 
-                HStack {
+                if compact {
 
                     Text(
                         "Tap the image for full-screen preview."
@@ -332,8 +616,6 @@ struct LocalImageGeneratorView: View {
                     .foregroundStyle(
                         .secondary
                     )
-
-                    Spacer()
 
                     Button {
 
@@ -346,9 +628,24 @@ struct LocalImageGeneratorView: View {
                             systemImage:
                                 "folder"
                         )
+                        .frame(
+                            maxWidth:
+                                .infinity
+                        )
                     }
                     .buttonStyle(
                         .borderedProminent
+                    )
+                    .controlSize(.large)
+
+                } else {
+
+                    Text(
+                        "Click the image for full-screen preview."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(
+                        .secondary
                     )
                 }
 
@@ -356,7 +653,8 @@ struct LocalImageGeneratorView: View {
 
                 ContentUnavailableView(
                     "No Image",
-                    systemImage: "photo",
+                    systemImage:
+                        "photo",
                     description:
                         Text(
                             "Enter a prompt and generate an image."
@@ -365,53 +663,25 @@ struct LocalImageGeneratorView: View {
                 .frame(
                     maxWidth:
                         .infinity,
+                    minHeight:
+                        compact
+                        ? 260
+                        : 400,
                     maxHeight:
-                        .infinity
+                        compact
+                        ? 320
+                        : .infinity
                 )
             }
         }
         .frame(
-            maxWidth: .infinity,
-            maxHeight: .infinity
+            maxWidth:
+                .infinity,
+            maxHeight:
+                compact
+                ? nil
+                : .infinity
         )
-        .padding(24)
-    }
-
-    // MARK: - Server
-
-    private var serverStatus: some View {
-
-        HStack(spacing: 8) {
-
-            Circle()
-                .fill(
-                    serverInfo == nil
-                    ? .red
-                    : serverInfo?.busy == true
-                        ? .orange
-                        : .green
-                )
-                .frame(
-                    width: 10,
-                    height: 10
-                )
-
-            Text(
-                serverInfo == nil
-                ? "Server offline"
-                : serverInfo?.busy == true
-                    ? "Server busy"
-                    : "Server ready"
-            )
-
-            Spacer()
-
-            Text("mini256.local")
-                .foregroundStyle(
-                    .secondary
-                )
-        }
-        .font(.subheadline)
     }
 
     // MARK: - Progress
@@ -431,13 +701,17 @@ struct LocalImageGeneratorView: View {
             {
 
                 ProgressView(
-                    value: progress,
-                    total: 100
+                    value:
+                        progress,
+                    total:
+                        100
                 )
 
                 HStack {
 
-                    Text("Generating")
+                    Text(
+                        "Generating"
+                    )
 
                     Spacer()
 
@@ -512,7 +786,8 @@ struct LocalImageGeneratorView: View {
 
         let modelName =
             serverInfo?
-                .models.first
+                .models
+                .first
             ?? "juggernaut-xl-v9"
 
         let request =
@@ -521,8 +796,10 @@ struct LocalImageGeneratorView: View {
                     cleanPrompt,
                 negativePrompt:
                     cleanNegativePrompt,
-                width: 1024,
-                height: 1024,
+                width:
+                    1024,
+                height:
+                    1024,
                 steps:
                     requestedSteps,
                 guidanceScale:
@@ -642,7 +919,9 @@ struct LocalImageGeneratorView: View {
             UInt64(value) != nil
     }
 
-    private var canGenerate: Bool {
+    private var canGenerate:
+        Bool
+    {
 
         serverInfo != nil &&
         serverInfo?.busy != true &&
@@ -658,7 +937,9 @@ struct LocalImageGeneratorView: View {
 
     // MARK: - Monitoring
 
-    private func monitorServer() async {
+    private func monitorServer()
+        async
+    {
 
         while !Task.isCancelled {
 
@@ -726,7 +1007,9 @@ struct LocalImageGeneratorView: View {
     private func createExportPackage(
         for image:
             GeneratedLocalImage
-    ) async throws -> ExportPackage {
+    ) async throws
+        -> ExportPackage
+    {
 
         let (
             imageData,
@@ -773,7 +1056,8 @@ struct LocalImageGeneratorView: View {
                 .temporaryDirectory
                 .appendingPathComponent(
                     UUID().uuidString,
-                    isDirectory: true
+                    isDirectory:
+                        true
                 )
 
         try FileManager.default
@@ -830,6 +1114,8 @@ struct LocalImageGeneratorView: View {
             ]
         )
     }
+
+    // MARK: - Markdown
 
     private func markdownText(
         for image:
@@ -920,6 +1206,40 @@ struct FullScreenImageView: View {
     @Environment(\.dismiss)
     private var dismiss
 
+    // MARK: Zoom State
+
+    @State
+    private var baseScale: CGFloat =
+        1.0
+
+    @GestureState
+    private var gestureScale: CGFloat =
+        1.0
+
+    @State
+    private var baseOffset:
+        CGSize =
+        .zero
+
+    @GestureState
+    private var gestureOffset:
+        CGSize =
+        .zero
+
+    private let minimumScale:
+        CGFloat =
+        1.0
+
+    private let maximumScale:
+        CGFloat =
+        5.0
+
+    private let doubleTapScale:
+        CGFloat =
+        2.5
+
+    // MARK: - Body
+
     var body: some View {
 
         NavigationStack {
@@ -945,15 +1265,9 @@ struct FullScreenImageView: View {
                         let image
                     ):
 
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .frame(
-                                maxWidth:
-                                    .infinity,
-                                maxHeight:
-                                    .infinity
-                            )
+                        zoomableImage(
+                            image
+                        )
 
                     case .failure:
 
@@ -982,6 +1296,7 @@ struct FullScreenImageView: View {
                     Button(
                         "Close"
                     ) {
+
                         dismiss()
                     }
                 }
@@ -1005,6 +1320,222 @@ struct FullScreenImageView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Zoomable Image
+
+    private func zoomableImage(
+        _ image: Image
+    ) -> some View {
+
+        let scale =
+            currentScale
+
+        let offset =
+            currentOffset
+
+        return image
+            .resizable()
+            .scaledToFit()
+            .frame(
+                maxWidth:
+                    .infinity,
+                maxHeight:
+                    .infinity
+            )
+            .scaleEffect(
+                scale
+            )
+            .offset(
+                offset
+            )
+            .contentShape(
+                Rectangle()
+            )
+            .gesture(
+                magnificationGesture
+            )
+            .simultaneousGesture(
+                dragGesture
+            )
+            .onTapGesture(
+                count: 2
+            ) {
+
+                toggleZoom()
+            }
+    }
+
+    // MARK: - Current Transform
+
+    private var currentScale:
+        CGFloat
+    {
+
+        min(
+            max(
+                baseScale *
+                    gestureScale,
+                minimumScale
+            ),
+            maximumScale
+        )
+    }
+
+    private var currentOffset:
+        CGSize
+    {
+
+        guard
+            currentScale >
+                minimumScale
+        else {
+            return .zero
+        }
+
+        return CGSize(
+            width:
+                baseOffset.width +
+                gestureOffset.width,
+            height:
+                baseOffset.height +
+                gestureOffset.height
+        )
+    }
+
+    // MARK: - Magnification Gesture
+
+    private var magnificationGesture:
+        some Gesture
+    {
+
+        MagnificationGesture()
+            .updating(
+                $gestureScale
+            ) {
+                value,
+                state,
+                _ in
+
+                state =
+                    value
+            }
+            .onEnded {
+                value in
+
+                let newScale =
+                    min(
+                        max(
+                            baseScale *
+                                value,
+                            minimumScale
+                        ),
+                        maximumScale
+                    )
+
+                baseScale =
+                    newScale
+
+                if
+                    newScale <=
+                    minimumScale
+                {
+
+                    resetPosition()
+                }
+            }
+    }
+
+    // MARK: - Drag Gesture
+
+    private var dragGesture:
+        some Gesture
+    {
+
+        DragGesture()
+            .updating(
+                $gestureOffset
+            ) {
+                value,
+                state,
+                _ in
+
+                guard
+                    currentScale >
+                        minimumScale
+                else {
+
+                    state =
+                        .zero
+
+                    return
+                }
+
+                state =
+                    value.translation
+            }
+            .onEnded {
+                value in
+
+                guard
+                    currentScale >
+                        minimumScale
+                else {
+
+                    resetPosition()
+
+                    return
+                }
+
+                baseOffset =
+                    CGSize(
+                        width:
+                            baseOffset.width +
+                            value.translation.width,
+                        height:
+                            baseOffset.height +
+                            value.translation.height
+                    )
+            }
+    }
+
+    // MARK: - Double Tap
+
+    private func toggleZoom() {
+
+        withAnimation(
+            .easeInOut(
+                duration: 0.2
+            )
+        ) {
+
+            if
+                baseScale >
+                    minimumScale
+            {
+
+                resetPosition()
+
+            } else {
+
+                baseScale =
+                    doubleTapScale
+
+                baseOffset =
+                    .zero
+            }
+        }
+    }
+
+    // MARK: - Reset
+
+    private func resetPosition() {
+
+        baseScale =
+            minimumScale
+
+        baseOffset =
+            .zero
     }
 }
 
@@ -1088,4 +1619,8 @@ private enum ExportError:
                 "Unable to download the generated image from the server."
         }
     }
+}
+
+#Preview {
+    LocalImageGeneratorView()
 }
