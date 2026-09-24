@@ -5,7 +5,6 @@
 
 import SwiftUI
 import AppKit
-import UniformTypeIdentifiers
 
 struct LocalImageGeneratorView: View {
 
@@ -34,6 +33,15 @@ struct LocalImageGeneratorView: View {
     @State
     private var seedText = ""
 
+    @State
+    private var promptHistory: [String] = []
+
+    @State
+    private var promptHistoryIndex: Int?
+
+    @State
+    private var promptDraftBeforeHistory = ""
+    
     // MARK: - Server / Generation State
 
     @State
@@ -202,8 +210,45 @@ struct LocalImageGeneratorView: View {
             spacing: 6
         ) {
 
-            Text("Prompt")
-                .font(.headline)
+            HStack {
+
+                Text("Prompt")
+                    .font(.headline)
+
+                Spacer()
+
+                Button {
+                    previousPrompt()
+                } label: {
+                    Image(
+                        systemName:
+                            "chevron.up"
+                    )
+                }
+                .buttonStyle(.borderless)
+                .help(
+                    "Previous prompt"
+                )
+                .disabled(
+                    !canGoToPreviousPrompt
+                )
+
+                Button {
+                    nextPrompt()
+                } label: {
+                    Image(
+                        systemName:
+                            "chevron.down"
+                    )
+                }
+                .buttonStyle(.borderless)
+                .help(
+                    "Next prompt"
+                )
+                .disabled(
+                    !canGoToNextPrompt
+                )
+            }
 
             TextEditor(
                 text: $prompt
@@ -236,7 +281,6 @@ struct LocalImageGeneratorView: View {
             }
         }
     }
-
     // MARK: - Negative Prompt
 
     private var negativePromptSection:
@@ -520,7 +564,7 @@ struct LocalImageGeneratorView: View {
                 Spacer()
 
                 Button(
-                    "Save Image…"
+                    "Export Image + Metadata…"
                 ) {
                     saveImage()
                 }
@@ -644,6 +688,10 @@ struct LocalImageGeneratorView: View {
                 in:
                     .whitespacesAndNewlines
             )
+        
+        addPromptToHistory(
+            cleanPrompt
+        )
 
         let cleanNegativePrompt =
             negativePrompt
@@ -702,6 +750,7 @@ struct LocalImageGeneratorView: View {
         Task {
 
             defer {
+
                 isGenerating =
                     false
             }
@@ -806,9 +855,9 @@ struct LocalImageGeneratorView: View {
                             parameters
                     )
 
-                // Put the real seed back into
-                // the UI so it can easily be
-                // reproduced.
+                // Put the actual seed back into
+                // the UI so the generation can
+                // easily be reproduced.
 
                 seedText =
                     "\(response.seed)"
@@ -904,7 +953,7 @@ struct LocalImageGeneratorView: View {
         }
     }
 
-    // MARK: - Save
+    // MARK: - Export
 
     @MainActor
     private func saveImage() {
@@ -915,54 +964,70 @@ struct LocalImageGeneratorView: View {
             return
         }
 
-        let imageURL =
-            generatedImage.imageURL
-
         let panel =
-            NSSavePanel()
+            NSOpenPanel()
 
         panel.title =
-            "Save Generated Image"
+            "Choose Export Folder"
+
+        panel.message =
+            "The generated image and its Markdown metadata file will be saved in this folder."
 
         panel.prompt =
-            "Save"
+            "Export"
 
-        panel.nameFieldStringValue =
-            imageURL
-                .lastPathComponent
-                .isEmpty
-            ? "generated-image.png"
-            : imageURL
-                .lastPathComponent
+        panel.canChooseFiles =
+            false
 
-        if
-            let type = UTType(
-                filenameExtension:
-                    imageURL.pathExtension
-            )
-        {
-            panel.allowedContentTypes = [
-                type
-            ]
+        panel.canChooseDirectories =
+            true
 
-        } else {
+        panel.allowsMultipleSelection =
+            false
 
-            panel.allowedContentTypes = [
-                .png,
-                .jpeg,
-                .heic
-            ]
-        }
+        panel.canCreateDirectories =
+            true
 
         guard
             panel.runModal() == .OK,
-            let destinationURL =
+            let folderURL =
                 panel.url
         else {
             return
         }
 
+        let sourceImageURL =
+            generatedImage.imageURL
+
+        let imageFilename =
+            sourceImageURL
+                .lastPathComponent
+                .isEmpty
+            ? "generated-image.png"
+            : sourceImageURL
+                .lastPathComponent
+
+        let destinationURL =
+            folderURL
+                .appendingPathComponent(
+                    imageFilename,
+                    isDirectory: false
+                )
+
+        let accessGranted =
+            folderURL
+                .startAccessingSecurityScopedResource()
+
         Task {
+
+            defer {
+
+                if accessGranted {
+
+                    folderURL
+                        .stopAccessingSecurityScopedResource()
+                }
+            }
 
             do {
 
@@ -984,6 +1049,140 @@ struct LocalImageGeneratorView: View {
                     error.localizedDescription
             }
         }
+    }
+    
+    // MARK: - Prompt History
+
+    private var canGoToPreviousPrompt:
+        Bool
+    {
+        guard
+            !promptHistory.isEmpty
+        else {
+            return false
+        }
+
+        if let promptHistoryIndex {
+            return promptHistoryIndex > 0
+        }
+
+        return true
+    }
+
+    private var canGoToNextPrompt:
+        Bool
+    {
+        promptHistoryIndex != nil
+    }
+
+    private func previousPrompt() {
+
+        guard
+            !promptHistory.isEmpty
+        else {
+            return
+        }
+
+        if let promptHistoryIndex {
+
+            guard
+                promptHistoryIndex > 0
+            else {
+                return
+            }
+
+            let newIndex =
+                promptHistoryIndex - 1
+
+            self.promptHistoryIndex =
+                newIndex
+
+            prompt =
+                promptHistory[
+                    newIndex
+                ]
+
+        } else {
+
+            promptDraftBeforeHistory =
+                prompt
+
+            let newIndex =
+                promptHistory.count - 1
+
+            promptHistoryIndex =
+                newIndex
+
+            prompt =
+                promptHistory[
+                    newIndex
+                ]
+        }
+    }
+
+    private func nextPrompt() {
+
+        guard
+            let promptHistoryIndex
+        else {
+            return
+        }
+
+        let newIndex =
+            promptHistoryIndex + 1
+
+        if newIndex <
+            promptHistory.count
+        {
+
+            self.promptHistoryIndex =
+                newIndex
+
+            prompt =
+                promptHistory[
+                    newIndex
+                ]
+
+        } else {
+
+            self.promptHistoryIndex =
+                nil
+
+            prompt =
+                promptDraftBeforeHistory
+        }
+    }
+
+    private func addPromptToHistory(
+        _ value: String
+    ) {
+
+        let cleanPrompt =
+            value.trimmingCharacters(
+                in:
+                    .whitespacesAndNewlines
+            )
+
+        guard
+            !cleanPrompt.isEmpty
+        else {
+            return
+        }
+
+        if
+            promptHistory.last !=
+                cleanPrompt
+        {
+            promptHistory.append(
+                cleanPrompt
+            )
+        }
+
+        promptHistoryIndex =
+            nil
+
+        promptDraftBeforeHistory =
+            ""
     }
 }
 
