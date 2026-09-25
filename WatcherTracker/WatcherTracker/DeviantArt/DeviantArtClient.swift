@@ -247,19 +247,6 @@ struct DeviantArtClient {
                 )
         }
 
-        if let json =
-            String(
-                data: data,
-                encoding: .utf8
-            )
-        {
-            print(
-                "WATCHERS RAW JSON:"
-            )
-
-            print(json)
-        }
-
         return try JSONDecoder()
             .decode(
                 DeviantArtWatchersPage.self,
@@ -362,3 +349,4 @@ enum DeviantArtClientError:
         }
     }
 }
+
