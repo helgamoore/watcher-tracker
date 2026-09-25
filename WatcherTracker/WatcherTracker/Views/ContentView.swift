@@ -29,6 +29,15 @@ struct ContentView: View {
     private var errorMessage: String?
 
     @State
+    private var isConnectingDeviantArt = false
+
+    @State
+    private var deviantArtStatusMessage: String?
+
+    @State
+    private var deviantArtErrorMessage: String?
+
+    @State
     private var folderWatcher = FolderWatcher()
 
     @AppStorage("watchersWindowOpen")
@@ -56,6 +65,9 @@ struct ContentView: View {
                 "https://www.deviantart.com/\(deviantArtUsername)/about#watchers"
         )
     }
+
+    private let deviantArtClientID =
+        "73792"
 
     private let bookmarkStore =
         BookmarkStore()
@@ -525,6 +537,22 @@ struct ContentView: View {
                 )
             }
 
+            if let deviantArtStatusMessage {
+
+                Text(deviantArtStatusMessage)
+                    .foregroundStyle(
+                        .secondary
+                    )
+            }
+
+            if let deviantArtErrorMessage {
+
+                Text(deviantArtErrorMessage)
+                    .foregroundStyle(
+                        .red
+                    )
+            }
+
             if let errorMessage {
 
                 Text(errorMessage)
@@ -599,41 +627,38 @@ struct ContentView: View {
                         .currentSnapshot == nil
                 )
 
-                Spacer()
-            }
-
-            HStack {
-
                 Button {
 
-                    openWindow(
-                        id: "favourites"
-                    )
+                    connectDeviantArt()
 
                 } label: {
 
-                    Label(
-                        "Favourites",
-                        systemImage:
-                            "star.fill"
-                    )
+                    if isConnectingDeviantArt {
+
+                        HStack(
+                            spacing: 6
+                        ) {
+
+                            ProgressView()
+                                .controlSize(
+                                    .small
+                                )
+
+                            Text(
+                                "Connecting…"
+                            )
+                        }
+
+                    } else {
+
+                        Text(
+                            "Connect DeviantArt"
+                        )
+                    }
                 }
-
-                Button {
-
-                    openWindow(
-                        id:
-                            "report-history"
-                    )
-
-                } label: {
-
-                    Label(
-                        "History",
-                        systemImage:
-                            "calendar"
-                    )
-                }
+                .disabled(
+                    isConnectingDeviantArt
+                )
 
                 Spacer()
 
@@ -653,6 +678,242 @@ struct ContentView: View {
                 )
             }
         }
+    }
+
+    // MARK: - DeviantArt Connection
+
+    private func connectDeviantArt() {
+
+        guard
+            !isConnectingDeviantArt
+        else {
+            return
+        }
+
+        isConnectingDeviantArt =
+            true
+
+        deviantArtStatusMessage =
+            "Connecting to DeviantArt…"
+
+        deviantArtErrorMessage =
+            nil
+
+        Task { @MainActor in
+
+            defer {
+
+                isConnectingDeviantArt =
+                    false
+            }
+
+            do {
+
+                let auth =
+                    DeviantArtAuthService(
+                        clientID:
+                            deviantArtClientID
+                    )
+
+                let token =
+                    try await auth
+                        .authorize()
+
+                print(
+                    "Authenticated. Token expires in \(token.expiresIn) seconds."
+                )
+
+                deviantArtStatusMessage =
+                    "Authenticated with DeviantArt. Validating token…"
+
+                let client =
+                    DeviantArtClient(
+                        accessToken:
+                            token.accessToken
+                    )
+
+                let valid =
+                    try await client
+                        .validateToken()
+
+                print(
+                    "DA token valid:",
+                    valid
+                )
+
+                guard valid
+                else {
+
+                    throw DeviantArtConnectionError
+                        .invalidToken
+                }
+
+                let user =
+                    try await client
+                        .whoAmI()
+
+                print(
+                    "Authenticated DeviantArt user:",
+                    user.username
+                )
+
+                // Keep the authenticated username in the
+                // same setting already used by WatcherTracker.
+                deviantArtUsername =
+                    user.username
+
+                deviantArtStatusMessage =
+                    "Connected as \(user.username). Loading watchers…"
+
+                let page =
+                    try await client
+                        .watchers(
+                            username:
+                                user.username
+                        )
+
+                print(
+                    "Watchers returned:",
+                    page.results.count
+                )
+
+                print(
+                    "Has more:",
+                    page.hasMore
+                )
+
+                print(
+                    "Next offset:",
+                    page.nextOffset
+                        as Any
+                )
+
+                for watcher in
+                    page.results.prefix(10)
+                {
+                    print(
+                        watcher.user.username
+                    )
+                }
+
+                deviantArtStatusMessage =
+                    "Connected as \(user.username). "
+                    + "First watcher page: \(page.results.count) records."
+
+                deviantArtErrorMessage =
+                    nil
+
+            } catch {
+
+                let description =
+                    describeDeviantArtError(
+                        error
+                    )
+
+                print(
+                    "DeviantArt error:",
+                    description
+                )
+
+                deviantArtStatusMessage =
+                    nil
+
+                deviantArtErrorMessage =
+                    description
+            }
+        }
+    }
+
+    private func describeDeviantArtError(
+        _ error: Error
+    ) -> String {
+
+        switch error {
+
+        case let DecodingError.keyNotFound(
+            key,
+            context
+        ):
+
+            return
+                "DeviantArt decoding error: missing key "
+                + "'\(key.stringValue)' at "
+                + codingPathDescription(
+                    context.codingPath
+                )
+                + ". "
+                + context.debugDescription
+
+        case let DecodingError.valueNotFound(
+            type,
+            context
+        ):
+
+            return
+                "DeviantArt decoding error: missing value for "
+                + "\(type) at "
+                + codingPathDescription(
+                    context.codingPath
+                )
+                + ". "
+                + context.debugDescription
+
+        case let DecodingError.typeMismatch(
+            type,
+            context
+        ):
+
+            return
+                "DeviantArt decoding error: type mismatch for "
+                + "\(type) at "
+                + codingPathDescription(
+                    context.codingPath
+                )
+                + ". "
+                + context.debugDescription
+
+        case let DecodingError.dataCorrupted(
+            context
+        ):
+
+            return
+                "DeviantArt decoding error at "
+                + codingPathDescription(
+                    context.codingPath
+                )
+                + ". "
+                + context.debugDescription
+
+        default:
+
+            return error.localizedDescription
+        }
+    }
+
+    private func codingPathDescription(
+        _ codingPath: [CodingKey]
+    ) -> String {
+
+        guard
+            !codingPath.isEmpty
+        else {
+            return "<root>"
+        }
+
+        return codingPath
+            .map {
+
+                if let index =
+                    $0.intValue
+                {
+                    return "[\(index)]"
+                }
+
+                return $0.stringValue
+            }
+            .joined(
+                separator: "."
+            )
     }
 
     // MARK: - Processing State
@@ -1154,6 +1415,24 @@ struct ContentView: View {
     }
 }
 
+private enum DeviantArtConnectionError:
+    LocalizedError
+{
+    case invalidToken
+
+    var errorDescription: String? {
+
+        switch self {
+
+        case .invalidToken:
+
+            return
+                "DeviantArt returned an invalid access token."
+        }
+    }
+}
+
 #Preview {
     ContentView()
 }
+
