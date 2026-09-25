@@ -266,6 +266,59 @@ struct DeviantArtClient {
                 from: data
             )
     }
+    
+    func allWatchers(
+        username: String
+    ) async throws
+        -> [DeviantArtWatcherEntry]
+    {
+        var allResults:
+            [DeviantArtWatcherEntry] = []
+
+        var offset = 0
+
+        while true {
+
+            let page =
+                try await watchers(
+                    username:
+                        username,
+                    offset:
+                        offset,
+                    limit:
+                        50
+                )
+
+            allResults.append(
+                contentsOf:
+                    page.results
+            )
+
+            print(
+                "Loaded \(allResults.count) watchers..."
+            )
+
+            guard
+                page.hasMore,
+                let nextOffset =
+                    page.nextOffset
+            else {
+                break
+            }
+
+            guard
+                nextOffset > offset
+            else {
+                throw DeviantArtClientError
+                    .invalidPagination
+            }
+
+            offset =
+                nextOffset
+        }
+
+        return allResults
+    }
 }
 
 private struct PlaceboResponse:
@@ -279,6 +332,8 @@ enum DeviantArtClientError:
 {
     case invalidResponse
 
+    case invalidPagination
+    
     case httpError(
         Int
     )
@@ -293,6 +348,11 @@ enum DeviantArtClientError:
             return
                 "DeviantArt returned an invalid response."
 
+        case .invalidPagination:
+
+            return
+                "DeviantArt returned an invalid pagination offset."
+            
         case .httpError(
             let statusCode
         ):

@@ -765,6 +765,26 @@ struct ContentView: View {
                 deviantArtStatusMessage =
                     "Connected as \(user.username). Loading watchers…"
 
+                let watchers =
+                    try await client
+                        .allWatchers(
+                            username:
+                                user.username
+                        )
+
+                print(
+                    "Total watchers:",
+                    watchers.count
+                )
+
+                for watcher in
+                    watchers.prefix(10)
+                {
+                    print(
+                        watcher.user.username
+                    )
+                }
+                
                 let page =
                     try await client
                         .watchers(
