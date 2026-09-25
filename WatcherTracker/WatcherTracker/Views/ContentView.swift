@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import UniformTypeIdentifiers
 
 struct ContentView: View {
 
@@ -11,25 +10,19 @@ struct ContentView: View {
     private var openWindow
 
     @State
-    private var sourceFolderURL: URL?
-
-    @State
     private var archiveFolderURL: URL?
-
-    @State
-    private var sourceFiles: [URL] = []
-
-    @State
-    private var selectedFile: URL?
-
-    @State
-    private var lastProcessedFileName: String?
 
     @State
     private var errorMessage: String?
 
     @State
-    private var folderWatcher = FolderWatcher()
+    private var isConnectingDeviantArt = false
+
+    @State
+    private var deviantArtStatusMessage: String?
+
+    @State
+    private var deviantArtErrorMessage: String?
 
     @AppStorage("watchersWindowOpen")
     private var watchersWindowOpen = false
@@ -57,11 +50,11 @@ struct ContentView: View {
         )
     }
 
+    private let deviantArtClientID =
+        "73792"
+
     private let bookmarkStore =
         BookmarkStore()
-
-    private let service =
-        WatcherTrackerService()
 
     private let archive =
         WatcherArchive()
@@ -185,7 +178,7 @@ struct ContentView: View {
                 .fontWeight(.semibold)
 
                 Text(
-                    "Import watcher lists, review changes, and manage tracked artists."
+                    "Fetch watcher data directly from DeviantArt, review changes, and manage tracked artists."
                 )
                 .foregroundStyle(
                     .secondary
@@ -194,13 +187,9 @@ struct ContentView: View {
 
             Divider()
 
-            sourceFolderSection
-
             archiveFolderSection
 
-            Divider()
-
-            fileSelectionSection
+            watcherSourceSection
 
             Spacer()
 
@@ -377,41 +366,6 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Source Folder
-
-    private var sourceFolderSection: some View {
-
-        HStack {
-
-            VStack(
-                alignment: .leading,
-                spacing: 4
-            ) {
-
-                Text("Source folder")
-                    .font(.headline)
-
-                Text(
-                    sourceFolderURL?.path
-                    ?? "No source folder selected"
-                )
-                .foregroundStyle(
-                    .secondary
-                )
-                .lineLimit(1)
-                .truncationMode(
-                    .middle
-                )
-            }
-
-            Spacer()
-
-            Button("Select…") {
-                chooseSourceFolder()
-            }
-        }
-    }
-
     // MARK: - Archive Folder
 
     private var archiveFolderSection: some View {
@@ -447,44 +401,36 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - File Selection
+    // MARK: - Watcher Source
 
-    private var fileSelectionSection: some View {
+    private var watcherSourceSection: some View {
 
-        VStack(
-            alignment: .leading,
-            spacing: 8
-        ) {
+        HStack {
 
-            Text(
-                "Select file for import"
-            )
-            .font(.headline)
+            VStack(
+                alignment: .leading,
+                spacing: 4
+            ) {
 
-            List(
-                sourceFiles,
-                id: \.self,
-                selection:
-                    $selectedFile
-            ) { file in
+                Text("Watcher source")
+                    .font(.headline)
 
                 Text(
-                    file.lastPathComponent
+                    deviantArtUsername.isEmpty
+                    ? "DeviantArt API · not connected yet"
+                    : "DeviantArt API · \(deviantArtUsername)"
                 )
-                .tag(file)
+                .foregroundStyle(
+                    .secondary
+                )
             }
-            .frame(
-                minHeight: 180
-            )
-            .disabled(
-                sourceFolderURL == nil
-            )
 
-            if sourceFiles.isEmpty,
-               sourceFolderURL != nil {
+            Spacer()
+
+            if appState.currentSnapshot != nil {
 
                 Text(
-                    "No files found in source folder."
+                    "\(appState.currentSnapshot?.count ?? 0) watchers"
                 )
                 .foregroundStyle(
                     .secondary
@@ -502,16 +448,6 @@ struct ContentView: View {
             spacing: 4
         ) {
 
-            if let lastProcessedFileName {
-
-                Text(
-                    "Last processed file: \(lastProcessedFileName)"
-                )
-                .foregroundStyle(
-                    .secondary
-                )
-            }
-
             if let lastReport =
                 appState.lastReport {
 
@@ -523,6 +459,22 @@ struct ContentView: View {
                 .foregroundStyle(
                     .secondary
                 )
+            }
+
+            if let deviantArtStatusMessage {
+
+                Text(deviantArtStatusMessage)
+                    .foregroundStyle(
+                        .secondary
+                    )
+            }
+
+            if let deviantArtErrorMessage {
+
+                Text(deviantArtErrorMessage)
+                    .foregroundStyle(
+                        .red
+                    )
             }
 
             if let errorMessage {
@@ -540,6 +492,7 @@ struct ContentView: View {
     private var deviantArtActions: some View {
 
         VStack(
+            alignment: .leading,
             spacing: 8
         ) {
 
@@ -637,10 +590,34 @@ struct ContentView: View {
 
                 Spacer()
 
-                Button(
-                    "Process"
-                ) {
-                    processSelectedFile()
+                Button {
+
+                    updateWatchersFromDeviantArt()
+
+                } label: {
+
+                    if isConnectingDeviantArt {
+
+                        HStack(
+                            spacing: 6
+                        ) {
+
+                            ProgressView()
+                                .controlSize(
+                                    .small
+                                )
+
+                            Text(
+                                "Updating…"
+                            )
+                        }
+
+                    } else {
+
+                        Text(
+                            "Update Watchers"
+                        )
+                    }
                 }
                 .buttonStyle(
                     .borderedProminent
@@ -649,19 +626,377 @@ struct ContentView: View {
                     .defaultAction
                 )
                 .disabled(
-                    !canProcess
+                    isConnectingDeviantArt
+                    || archiveFolderURL == nil
                 )
             }
         }
     }
+    // MARK: - DeviantArt Connection
 
-    // MARK: - Processing State
+    private func updateWatchersFromDeviantArt() {
 
-    private var canProcess: Bool {
+        guard
+            !isConnectingDeviantArt
+        else {
+            return
+        }
 
-        sourceFolderURL != nil
-        && archiveFolderURL != nil
-        && selectedFile != nil
+        guard
+            archiveFolderURL != nil
+        else {
+
+            deviantArtErrorMessage =
+                "Choose an archive folder before updating watchers."
+
+            return
+        }
+
+        isConnectingDeviantArt =
+            true
+
+        deviantArtStatusMessage =
+            "Connecting to DeviantArt…"
+
+        deviantArtErrorMessage =
+            nil
+
+        Task { @MainActor in
+
+            defer {
+
+                isConnectingDeviantArt =
+                    false
+            }
+
+            do {
+
+                let auth =
+                    DeviantArtAuthService(
+                        clientID:
+                            deviantArtClientID
+                    )
+
+                let token =
+                    try await auth
+                        .authorize()
+
+                deviantArtStatusMessage =
+                    "Authenticated. Validating token…"
+
+                let client =
+                    DeviantArtClient(
+                        accessToken:
+                            token.accessToken
+                    )
+
+                let valid =
+                    try await client
+                        .validateToken()
+
+                guard valid
+                else {
+
+                    throw DeviantArtConnectionError
+                        .invalidToken
+                }
+
+                let user =
+                    try await client
+                        .whoAmI()
+
+                deviantArtUsername =
+                    user.username
+
+                deviantArtStatusMessage =
+                    "Connected as \(user.username). Loading watchers…"
+
+                let watchers =
+                    try await client
+                        .allWatchers(
+                            username:
+                                user.username
+                        )
+
+                deviantArtStatusMessage =
+                    "Loaded \(watchers.count) watchers. Updating archive…"
+
+                let report =
+                    try processDeviantArtWatchers(
+                        watchers
+                    )
+
+                deviantArtStatusMessage =
+                    "Updated \(report.total) watchers: "
+                    + "\(report.added.count) added, "
+                    + "\(report.removed.count) removed."
+
+                deviantArtErrorMessage =
+                    nil
+
+            } catch {
+
+                let description =
+                    describeDeviantArtError(
+                        error
+                    )
+
+                print(
+                    "DeviantArt error:",
+                    description
+                )
+
+                deviantArtStatusMessage =
+                    nil
+
+                deviantArtErrorMessage =
+                    description
+            }
+        }
+    }
+
+    private func processDeviantArtWatchers(
+        _ watchers:
+            [DeviantArtWatcherEntry]
+    ) throws -> WatcherReport {
+
+        guard
+            let archiveFolderURL
+        else {
+
+            throw DeviantArtConnectionError
+                .archiveFolderRequired
+        }
+
+        let accessGranted =
+            archiveFolderURL
+                .startAccessingSecurityScopedResource()
+
+        defer {
+
+            if accessGranted {
+
+                archiveFolderURL
+                    .stopAccessingSecurityScopedResource()
+            }
+        }
+
+        let now =
+            Date()
+
+        let usernames =
+            Array(
+                Set(
+                    watchers.map {
+                        $0.user.username
+                    }
+                )
+            )
+            .sorted {
+                $0.localizedCaseInsensitiveCompare(
+                    $1
+                ) == .orderedAscending
+            }
+
+        let snapshot =
+            WatcherSnapshot(
+                date:
+                    now,
+                watchers:
+                    usernames
+            )
+
+        let previousSnapshot:
+            WatcherSnapshot?
+
+        if let previousURL =
+            try archive
+                .latestSnapshotURL(
+                    in:
+                        archiveFolderURL,
+                    before:
+                        now
+                )
+        {
+            previousSnapshot =
+                try archive
+                    .loadSnapshot(
+                        from:
+                            previousURL
+                    )
+
+        } else {
+
+            previousSnapshot =
+                nil
+        }
+
+        let currentSet =
+            Set(
+                snapshot.watchers
+            )
+
+        let previousSet =
+            Set(
+                previousSnapshot?
+                    .watchers
+                ?? []
+            )
+
+        let added =
+            currentSet
+                .subtracting(
+                    previousSet
+                )
+                .sorted {
+                    $0.localizedCaseInsensitiveCompare(
+                        $1
+                    ) == .orderedAscending
+                }
+
+        let removed =
+            previousSet
+                .subtracting(
+                    currentSet
+                )
+                .sorted {
+                    $0.localizedCaseInsensitiveCompare(
+                        $1
+                    ) == .orderedAscending
+                }
+
+        let report =
+            WatcherReport(
+                date:
+                    now,
+                added:
+                    added,
+                removed:
+                    removed,
+                total:
+                    snapshot.count
+            )
+
+        _ =
+            try archive.save(
+                snapshot,
+                to:
+                    archiveFolderURL
+            )
+
+        _ =
+            try archive.save(
+                report,
+                to:
+                    archiveFolderURL
+            )
+
+        appState.currentSnapshot =
+            snapshot
+
+        appState.lastReport =
+            report
+
+        openWindow(
+            id: "report"
+        )
+
+        errorMessage =
+            nil
+
+        return report
+    }
+
+    private func describeDeviantArtError(
+        _ error: Error
+    ) -> String {
+
+        switch error {
+
+        case let DecodingError.keyNotFound(
+            key,
+            context
+        ):
+
+            return
+                "DeviantArt decoding error: missing key "
+                + "'\(key.stringValue)' at "
+                + codingPathDescription(
+                    context.codingPath
+                )
+                + ". "
+                + context.debugDescription
+
+        case let DecodingError.valueNotFound(
+            type,
+            context
+        ):
+
+            return
+                "DeviantArt decoding error: missing value for "
+                + "\(type) at "
+                + codingPathDescription(
+                    context.codingPath
+                )
+                + ". "
+                + context.debugDescription
+
+        case let DecodingError.typeMismatch(
+            type,
+            context
+        ):
+
+            return
+                "DeviantArt decoding error: type mismatch for "
+                + "\(type) at "
+                + codingPathDescription(
+                    context.codingPath
+                )
+                + ". "
+                + context.debugDescription
+
+        case let DecodingError.dataCorrupted(
+            context
+        ):
+
+            return
+                "DeviantArt decoding error at "
+                + codingPathDescription(
+                    context.codingPath
+                )
+                + ". "
+                + context.debugDescription
+
+        default:
+
+            return error.localizedDescription
+        }
+    }
+
+    private func codingPathDescription(
+        _ codingPath: [CodingKey]
+    ) -> String {
+
+        guard
+            !codingPath.isEmpty
+        else {
+            return "<root>"
+        }
+
+        return codingPath
+            .map {
+
+                if let index =
+                    $0.intValue
+                {
+                    return "[\(index)]"
+                }
+
+                return $0.stringValue
+            }
+            .joined(
+                separator: "."
+            )
     }
 
     // MARK: - DeviantArt Profile
@@ -677,64 +1012,6 @@ struct ContentView: View {
         NSWorkspace.shared.open(
             url
         )
-    }
-
-    // MARK: - Source Folder Selection
-
-    private func chooseSourceFolder() {
-
-        let panel =
-            NSOpenPanel()
-
-        panel.title =
-            "Choose Source Folder"
-
-        panel.prompt =
-            "Select"
-
-        panel.canChooseFiles =
-            false
-
-        panel.canChooseDirectories =
-            true
-
-        panel.allowsMultipleSelection =
-            false
-
-        if let sourceFolderURL {
-            panel.directoryURL =
-                sourceFolderURL
-        }
-
-        guard
-            panel.runModal() == .OK,
-            let url = panel.url
-        else {
-            return
-        }
-
-        do {
-
-            try bookmarkStore
-                .saveSourceFolder(
-                    url
-                )
-
-            sourceFolderURL =
-                url
-
-            errorMessage =
-                nil
-
-            refreshSourceFiles()
-
-            startFolderWatcher()
-
-        } catch {
-
-            errorMessage =
-                "Choosing source folder error: \(error.localizedDescription)"
-        }
     }
 
     // MARK: - Archive Folder Selection
@@ -782,6 +1059,10 @@ struct ContentView: View {
             archiveFolderURL =
                 url
 
+            loadLatestReport()
+            loadCurrentSnapshot()
+            loadFavourites()
+
             errorMessage =
                 nil
 
@@ -792,174 +1073,13 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Source Files
-
-    private func refreshSourceFiles() {
-
-        guard let sourceFolderURL
-        else {
-
-            sourceFiles = []
-            selectedFile = nil
-            return
-        }
-
-        let accessGranted =
-            sourceFolderURL
-                .startAccessingSecurityScopedResource()
-
-        defer {
-
-            if accessGranted {
-
-                sourceFolderURL
-                    .stopAccessingSecurityScopedResource()
-            }
-        }
-
-        do {
-
-            let files =
-                try FileManager.default
-                    .contentsOfDirectory(
-                        at:
-                            sourceFolderURL,
-                        includingPropertiesForKeys:
-                            nil,
-                        options:
-                            [
-                                .skipsHiddenFiles
-                            ]
-                    )
-
-            sourceFiles =
-                files
-                    .filter {
-
-                        !$0.hasDirectoryPath
-                        && $0.pathExtension
-                            .lowercased()
-                        == "txt"
-                    }
-                    .sorted {
-
-                        $0.lastPathComponent
-                            .localizedCaseInsensitiveCompare(
-                                $1.lastPathComponent
-                            )
-                        == .orderedAscending
-                    }
-
-            restorePreviousSelection()
-
-            errorMessage =
-                nil
-
-        } catch {
-
-            sourceFiles = []
-
-            selectedFile =
-                nil
-
-            errorMessage =
-                "Refreshing source files error: \(error.localizedDescription)"
-        }
-    }
-
-    private func restorePreviousSelection() {
-
-        guard
-            let lastProcessedFileName
-        else {
-
-            selectedFile =
-                nil
-
-            return
-        }
-
-        selectedFile =
-            sourceFiles.first {
-
-                $0.lastPathComponent
-                == lastProcessedFileName
-            }
-    }
-
-    // MARK: - Process
-
-    private func processSelectedFile() {
-
-        guard
-            let selectedFile,
-            let archiveFolderURL
-        else {
-            return
-        }
-
-        do {
-
-            let report =
-                try service.process(
-                    sourceURL:
-                        selectedFile,
-                    archiveFolderURL:
-                        archiveFolderURL
-                )
-
-            let processedFileName =
-                selectedFile
-                    .lastPathComponent
-
-            lastProcessedFileName =
-                processedFileName
-
-            bookmarkStore
-                .saveLastProcessedFileName(
-                    processedFileName
-                )
-
-            appState.lastReport =
-                report
-
-            openWindow(
-                id: "report"
-            )
-
-            errorMessage =
-                nil
-
-            loadCurrentSnapshot()
-
-            refreshSourceFiles()
-
-        } catch {
-
-            errorMessage =
-                "Processing selected file error: \(error.localizedDescription)"
-        }
-    }
-
     // MARK: - Restore
 
     private func restoreState() {
 
-        sourceFolderURL =
-            bookmarkStore
-                .loadSourceFolder()
-
         archiveFolderURL =
             bookmarkStore
                 .loadArchiveFolder()
-
-        lastProcessedFileName =
-            bookmarkStore
-                .loadLastProcessedFileName()
-
-        refreshSourceFiles()
-
-        startFolderWatcher()
 
         loadLatestReport()
 
@@ -1022,27 +1142,6 @@ struct ContentView: View {
 
             errorMessage =
                 "Load latest report error: \(error.localizedDescription)"
-        }
-    }
-
-    // MARK: - Folder Watcher
-
-    private func startFolderWatcher() {
-
-        guard
-            let sourceFolderURL
-        else {
-
-            folderWatcher.stop()
-            return
-        }
-
-        folderWatcher.start(
-            watching:
-                sourceFolderURL
-        ) {
-
-            refreshSourceFiles()
         }
     }
 
@@ -1154,6 +1253,31 @@ struct ContentView: View {
     }
 }
 
+private enum DeviantArtConnectionError:
+    LocalizedError
+{
+    case invalidToken
+    case archiveFolderRequired
+
+    var errorDescription: String? {
+
+        switch self {
+
+        case .invalidToken:
+
+            return
+                "DeviantArt returned an invalid access token."
+
+        case .archiveFolderRequired:
+
+            return
+                "Choose an archive folder before updating watchers."
+        }
+    }
+}
+
 #Preview {
     ContentView()
 }
+
+
