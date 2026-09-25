@@ -491,106 +491,147 @@ struct ContentView: View {
 
     private var deviantArtActions: some View {
 
-        HStack {
+        VStack(
+            alignment: .leading,
+            spacing: 8
+        ) {
 
-            Button {
+            HStack {
 
-                openDeviantArtProfile()
+                Button {
 
-            } label: {
+                    openDeviantArtProfile()
 
-                HStack(
-                    spacing: 6
-                ) {
-
-                    Image(
-                        "DeviantArtLogo"
-                    )
-                    .resizable()
-                    .scaledToFit()
-                    .frame(
-                        width: 16,
-                        height: 16
-                    )
-
-                    Text(
-                        "DA Profile"
-                    )
-                }
-            }
-            .disabled(
-                deviantArtUsername
-                    .isEmpty
-            )
-
-            Button(
-                "Latest Report"
-            ) {
-                openWindow(
-                    id: "report"
-                )
-            }
-            .disabled(
-                appState
-                    .lastReport == nil
-            )
-
-            Button(
-                "Current Watchers"
-            ) {
-                openWindow(
-                    id: "watchers"
-                )
-            }
-            .disabled(
-                appState
-                    .currentSnapshot == nil
-            )
-
-            Spacer()
-
-            Button {
-
-                updateWatchersFromDeviantArt()
-
-            } label: {
-
-                if isConnectingDeviantArt {
+                } label: {
 
                     HStack(
                         spacing: 6
                     ) {
 
-                        ProgressView()
-                            .controlSize(
-                                .small
-                            )
+                        Image(
+                            "DeviantArtLogo"
+                        )
+                        .resizable()
+                        .scaledToFit()
+                        .frame(
+                            width: 16,
+                            height: 16
+                        )
 
                         Text(
-                            "Updating…"
+                            "DA Profile"
                         )
                     }
+                }
+                .disabled(
+                    deviantArtUsername
+                        .isEmpty
+                )
 
-                } else {
-
-                    Text(
-                        "Update Watchers"
+                Button(
+                    "Latest Report"
+                ) {
+                    openWindow(
+                        id: "report"
                     )
                 }
+                .disabled(
+                    appState
+                        .lastReport == nil
+                )
+
+                Button(
+                    "Current Watchers"
+                ) {
+                    openWindow(
+                        id: "watchers"
+                    )
+                }
+                .disabled(
+                    appState
+                        .currentSnapshot == nil
+                )
+
+                Spacer()
             }
-            .buttonStyle(
-                .borderedProminent
-            )
-            .keyboardShortcut(
-                .defaultAction
-            )
-            .disabled(
-                isConnectingDeviantArt
-                || archiveFolderURL == nil
-            )
+
+            HStack {
+
+                Button {
+
+                    openWindow(
+                        id: "favourites"
+                    )
+
+                } label: {
+
+                    Label(
+                        "Favourites",
+                        systemImage:
+                            "star.fill"
+                    )
+                }
+
+                Button {
+
+                    openWindow(
+                        id:
+                            "report-history"
+                    )
+
+                } label: {
+
+                    Label(
+                        "History",
+                        systemImage:
+                            "calendar"
+                    )
+                }
+
+                Spacer()
+
+                Button {
+
+                    updateWatchersFromDeviantArt()
+
+                } label: {
+
+                    if isConnectingDeviantArt {
+
+                        HStack(
+                            spacing: 6
+                        ) {
+
+                            ProgressView()
+                                .controlSize(
+                                    .small
+                                )
+
+                            Text(
+                                "Updating…"
+                            )
+                        }
+
+                    } else {
+
+                        Text(
+                            "Update Watchers"
+                        )
+                    }
+                }
+                .buttonStyle(
+                    .borderedProminent
+                )
+                .keyboardShortcut(
+                    .defaultAction
+                )
+                .disabled(
+                    isConnectingDeviantArt
+                    || archiveFolderURL == nil
+                )
+            }
         }
     }
-
     // MARK: - DeviantArt Connection
 
     private func updateWatchersFromDeviantArt() {
